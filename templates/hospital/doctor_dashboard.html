@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-dashboard-endpoint="{% url 'hospital:dashboard_live_metrics' %}"></div>
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-person-badge"></i> Clinical command center</span>
+            <h1 class="display-6 fw-bold mb-2">Doctor workspace</h1>
+            <p class="text-white-50 mb-0">Track active patients, coordinate referrals, manage cross-hospital tasks, and document care with a structured clinical workflow.</p>
+        </div>
+        <div class="col-lg-4">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Clinician</div>
+                <div class="fs-4 fw-bold">{{ doctor }}</div>
+                <div class="small text-white-50 mt-2">{% if current_hospital %}Current focus: {{ current_hospital.name }}{% else %}Cross-hospital network view{% endif %}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if current_patient %}
+<div class="alert alert-info border-0 mb-4">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="status-pill"><i class="bi bi-person-check"></i>Current patient</span>
+        <strong>{{ current_patient }}</strong>
+        <span class="text-secondary">Charting, referrals, care plans, and tasks will use this patient context where relevant.</span>
+    </div>
+</div>
+{% endif %}
+
+{% if assistant_watch_items %}
+<div class="card bayafya-watch p-4 mb-4" data-watch-dismiss-url="{% url 'hospital:dismiss_watch_signal' %}">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span><h2 class="h4 mt-3 mb-0">Clinical observations worth a second look</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-pill" data-bayafya-watch-count><i class="bi bi-stars"></i>{{ assistant_watch_items|length }} signals</span>
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-refresh aria-label="Refresh BayAfya watch">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline">Refresh</span>
+            </button>
+            {% if assistant_watch_items|length > 1 %}
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-toggle aria-expanded="false">Show more</button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="bayafya-watch-list" data-scroll-cards data-bayafya-watch-list>
+        {% for item in assistant_watch_items %}
+        <div class="bayafya-watch-item bayafya-watch-tone-{{ item.tone|default:'primary' }}" data-bayafya-watch-item data-watch-id="{{ item.id }}"{% if forloop.first %} data-watch-active="true"{% endif %}>
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                <div class="fw-semibold">{{ item.title }}</div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="status-pill {% if item.tone == 'danger' %}danger{% elif item.tone == 'warning' %}warning{% endif %}">{{ item.tone|title }}</span>
+                    <button class="bayafya-watch-dismiss" type="button" data-watch-dismiss="{{ item.id }}" aria-label="Dismiss signal"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+            <div class="text-secondary small">{{ item.detail }}</div>
+            {% if item.meta %}<div class="text-secondary small mt-2">{{ item.meta }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card bayafya-watch p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span><h2 class="h4 mt-3 mb-0">Clinical observations worth a second look</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-pill"><i class="bi bi-stars"></i>0 signals</span>
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-refresh aria-label="Refresh BayAfya watch">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline">Refresh</span>
+            </button>
+        </div>
+    </div>
+    <div class="bayafya-watch-empty empty-state p-4 text-center">
+        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-stars fs-2"></i></div>
+        <div class="fw-semibold">No urgent watch items right now</div>
+        <div class="text-secondary small">BayAfya will keep this lane quiet until a fresh signal in the last 12 hours deserves your attention.</div>
+    </div>
+</div>
+{% endif %}
+
+<details class="card p-4 mb-4 command-notes-card" open>
+    <summary class="d-flex justify-content-between align-items-center list-unstyled">
+        <div><span class="section-kicker"><i class="bi bi-journal-text"></i>Command notes</span><h2 class="h4 mt-3 mb-0">Clinical notes for the current shift</h2></div>
+        <span class="bh-btn bh-btn-inline bh-btn-outline"><i class="bi bi-x-lg"></i><span>Close</span></span>
+    </summary>
+    <div class="row g-3 mt-1">
+        <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Context</div><div class="text-secondary small">Keep one patient chart active when documenting, referring, or issuing follow-up instructions to avoid fragmented care.</div></div></div>
+        <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Queue flow</div><div class="text-secondary small">The active queue should move from the current patient to the next ready case without opening full forms for everyone at once.</div></div></div>
+        <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Continuity</div><div class="text-secondary small">Admissions, transfers, discharge notes, and follow-up steps now feed back into the patient record for a cleaner longitudinal history.</div></div></div>
+    </div>
+</details>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3"><a class="module-link" href="{% url 'hospital:appointment_center' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-calendar2-week fs-4"></i></div><h3 class="h6 mb-1">Appointment center</h3><p class="text-secondary mb-0">Manage upcoming, completed, past, and cancelled visits in one schedule view.</p></div></a></div>
+    <div class="col-md-6 col-xl-3"><a class="module-link" href="{% url 'hospital:patient_registry' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-people fs-4"></i></div><h3 class="h6 mb-1">Patient registry</h3><p class="text-secondary mb-0">Open cross-hospital charts and clinical history.</p></div></a></div>
+    <div class="col-md-6 col-xl-3"><a class="module-link" href="{% url 'hospital:walk_in_hub' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-heart-pulse fs-4"></i></div><h3 class="h6 mb-1">Walk-in flow</h3><p class="text-secondary mb-0">Work the prioritized queue from triage to discharge.</p></div></a></div>
+    <div class="col-md-6 col-xl-3"><a class="module-link" href="{% url 'hospital:admission_dashboard' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-hospital fs-4"></i></div><h3 class="h6 mb-1">Admission board</h3><p class="text-secondary mb-0">Follow inpatients, ward moves, and discharge work.</p></div></a></div>
+    <div class="col-md-6 col-xl-3"><a class="module-link" href="{% url 'telemedicine:dashboard' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-camera-video fs-4"></i></div><h3 class="h6 mb-1">Telemedicine</h3><p class="text-secondary mb-0">Launch and monitor virtual consultations.</p></div></a></div>
+</div>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-activity"></i><span>Live clinical summary</span></span>
+        <span class="metric-overview-meta">8 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-building"></i></span><span class="metric-overview-label">Affiliated hospitals</span><strong class="metric-overview-value" data-live-metric="hospitals">{{ stats.hospitals }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-calendar2-week"></i></span><span class="metric-overview-label">Appointments</span><strong class="metric-overview-value" data-live-metric="appointments">{{ stats.appointments }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-heart-pulse"></i></span><span class="metric-overview-label">Walk-ins</span><strong class="metric-overview-value" data-live-metric="walk_ins">{{ stats.walk_ins }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-hospital"></i></span><span class="metric-overview-label">Active admissions</span><strong class="metric-overview-value" data-live-metric="admissions">{{ stats.admissions }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-list-check"></i></span><span class="metric-overview-label">Open tasks</span><strong class="metric-overview-value" data-live-metric="tasks">{{ stats.tasks }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-diagram-3"></i></span><span class="metric-overview-label">Live referrals</span><strong class="metric-overview-value" data-live-metric="referrals">{{ stats.referrals }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-beaker"></i></span><span class="metric-overview-label">Pending lab requests</span><strong class="metric-overview-value" data-live-metric="labs">{{ stats.labs }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-camera-video"></i></span><span class="metric-overview-label">Virtual consults</span><strong class="metric-overview-value" data-live-metric="telemedicine">{{ stats.telemedicine }}</strong></div>
+    </div>
+</details>
+
+<div class="dashboard-grid d-none d-md-grid mb-4">
+    <a class="metric-link" href="#doctor-network"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-building fs-4"></i></div><div class="metric-value" data-live-metric="hospitals">{{ stats.hospitals }}</div><div class="metric-label">Affiliated hospitals</div></div></a>
+    <a class="metric-link" href="#doctor-appointments"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-calendar2-week fs-4"></i></div><div class="metric-value" data-live-metric="appointments">{{ stats.appointments }}</div><div class="metric-label">Appointments</div></div></a>
+    <a class="metric-link" href="{% url 'hospital:walk_in_hub' %}"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-heart-pulse fs-4"></i></div><div class="metric-value" data-live-metric="walk_ins">{{ stats.walk_ins }}</div><div class="metric-label">Walk-ins</div></div></a>
+    <a class="metric-link" href="{% url 'hospital:admission_dashboard' %}"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-hospital fs-4"></i></div><div class="metric-value" data-live-metric="admissions">{{ stats.admissions }}</div><div class="metric-label">Active admissions</div></div></a>
+    <a class="metric-link" href="#doctor-tasks"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-list-check fs-4"></i></div><div class="metric-value" data-live-metric="tasks">{{ stats.tasks }}</div><div class="metric-label">Open tasks</div></div></a>
+    <a class="metric-link" href="#doctor-referrals"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-diagram-3 fs-4"></i></div><div class="metric-value" data-live-metric="referrals">{{ stats.referrals }}</div><div class="metric-label">Live referrals</div></div></a>
+    <a class="metric-link" href="#doctor-workflow"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-beaker fs-4"></i></div><div class="metric-value" data-live-metric="labs">{{ stats.labs }}</div><div class="metric-label">Pending lab requests</div></div></a>
+    <a class="metric-link" href="{% url 'telemedicine:dashboard' %}"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-camera-video fs-4"></i></div><div class="metric-value" data-live-metric="telemedicine">{{ stats.telemedicine }}</div><div class="metric-label">Virtual consults</div></div></a>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-6">
+        <div class="dashboard-stack">
+        <details class="card p-4 mb-4 profile-expand-card" id="doctor-appointments" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Clinical alerts</span>
+                    <h2 class="h4 mt-3 mb-0">Priority signal board</h2>
+                    <p class="text-secondary mb-0">Escalations, critical reminders, and anything needing a second look.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-broadcast-pin"></i><span>{{ critical_alerts|length }} signals</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for alert in critical_alerts %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ alert.label }}</div>
+                            <div class="text-secondary small">{{ alert.detail }}</div>
+                        </div>
+                        <span class="status-pill {% if alert.tone == 'danger' %}danger{% elif alert.tone == 'warning' %}warning{% endif %}">{{ alert.tone|title }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-shield-check fs-2"></i></div>
+                    <div class="fw-semibold">No critical alerts</div>
+                    <div class="text-secondary small">The current doctor queue does not contain unresolved critical alerts.</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 mb-4 profile-expand-card" id="doctor-workflow" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Patient flow</span>
+                    <h2 class="h4 mt-3 mb-0">Active patients</h2>
+                    <p class="text-secondary mb-0">Open charts, walk-ins, and admissions currently linked to your view.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-person-vcard"></i><span>{{ active_patients|length }} patients</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="card-grid-scroll" data-scroll-cards>
+                {% for patient in active_patients %}
+                <div class="card-grid-item">
+                    <a class="module-link" href="{% url 'hospital:patient_detail' patient.id %}">
+                        <div class="feature-card h-100 p-4">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                <div>
+                                    <div class="fw-semibold">{{ patient }}</div>
+                                    <div class="text-secondary small">{{ patient.patient_number }}</div>
+                                </div>
+                                <span class="status-pill"><i class="bi bi-building"></i>{{ patient.hospital.name|default:"Shared" }}</span>
+                            </div>
+                            <div class="text-secondary small">Age group {{ patient.age_group }}{% if patient.medical_history %} · {{ patient.medical_history|truncatechars:100 }}{% endif %}</div>
+                        </div>
+                    </a>
+                </div>
+                {% empty %}
+                <div class="card-grid-item card-grid-item-full"><div class="empty-state p-4 text-center"><div class="fw-semibold">No active patients in view</div><div class="text-secondary small">Open a chart, walk-in, or admission to populate this board.</div></div></div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 mb-4 profile-expand-card" id="doctor-network" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Appointments</span>
+                    <h2 class="h4 mt-3 mb-0">Care queue</h2>
+                    <p class="text-secondary mb-0">Upcoming appointments, statuses, and direct chart actions.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-clipboard2-check"></i><span>{{ appointments|length }} visits</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="card-grid-scroll" data-scroll-cards>
+                {% for item in appointments %}
+                <div class="card-grid-item">
+                    <div class="schedule-card h-100">
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div class="schedule-card-meta">
+                                <div class="schedule-card-title">{{ item.patient }}</div>
+                                <div class="schedule-card-subtitle">{{ item.appointment_date }} at {{ item.appointment_time }}</div>
+                            </div>
+                            <span class="status-pill schedule-card-status" data-appointment-status="{{ item.id }}"><i class="bi bi-activity"></i>{{ item.get_status_display }}</span>
+                        </div>
+                        <div class="schedule-card-reason">{{ item.reason|default:"No additional reason captured." }}</div>
+                        <div class="schedule-card-actions" data-appointment-actions="{{ item.id }}">
+                            <form method="post" action="{% url 'hospital:set_clinical_context' item.id %}" data-async-context-form>{% csrf_token %}<button class="bh-btn bh-btn-inline {% if current_patient and current_patient.id == item.patient.id %}bh-btn-primary{% else %}bh-btn-outline{% endif %}" type="submit" data-chart-button data-patient-id="{{ item.patient.id }}">{% if current_patient and current_patient.id == item.patient.id %}<i class="bi bi-check2-circle"></i><span>Chart opened</span>{% else %}Open chart{% endif %}</button></form>
+                            <form method="post" action="{% url 'hospital:update_appointment_status' item.id 'confirmed' %}" data-async-status-form data-appointment-id="{{ item.id }}">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Confirm</button></form>
+                            <form method="post" action="{% url 'hospital:update_appointment_status' item.id 'cancelled' %}" data-async-status-form data-appointment-id="{{ item.id }}">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-danger" type="submit">Cancel</button></form>
+                            <form method="post" action="{% url 'telemedicine:create_consultation' item.id %}">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Open telemedicine</button></form>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="card-grid-item card-grid-item-full"><div class="empty-state p-4 text-center"><div class="fw-semibold">No appointments scheduled</div><div class="text-secondary small">Confirmed bookings will appear here for action.</div></div></div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 mb-4 profile-expand-card" id="doctor-tasks" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Clinical workflow</span>
+                    <h2 class="h4 mt-3 mb-0">Walk-ins, labs, and admissions</h2>
+                    <p class="text-secondary mb-0">One place for queue movement, review work, and inpatient context.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-diagram-3"></i><span>{{ walk_in_queue|length }} queue items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="workflow-lane-stack">
+                <div class="workflow-lane-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Walk-in queue</div>
+                            <div class="text-secondary small">Latest arrivals and active front-of-clinic pressure.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-heart-pulse"></i>{{ walk_in_queue|length }} items</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for item in walk_in_queue %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="fw-semibold">{{ item.patient }}</div>
+                                <div class="text-secondary small mb-2">{{ item.symptoms|default:item.current_state|truncatechars:90 }}</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="status-pill {% if item.is_critical %}danger{% elif item.severity_band == 'high' %}warning{% endif %}">{{ item.get_severity_band_display }} · {{ item.severity_index }}/100</span>
+                                    <form method="post" action="{% url 'hospital:set_walk_in_context' item.id %}" data-async-context-form>{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Open</button></form>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No walk-ins waiting.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+                <div class="workflow-lane-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Lab review queue</div>
+                            <div class="text-secondary small">Newest completed results waiting for doctor review.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-eyedropper"></i>{{ pending_lab_reviews|length }} items</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for item in pending_lab_reviews %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="fw-semibold">{{ item.request.patient }}</div>
+                                <div class="text-secondary small">{{ item.request.test_name }} · {{ item.completed_at|date:"Y-m-d H:i" }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No pending lab reviews.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+                <div class="workflow-lane-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Inpatient load</div>
+                            <div class="text-secondary small">Latest admissions linked to your current clinical scope.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-hospital"></i>{{ active_admissions|length }} items</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for item in active_admissions %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="fw-semibold">{{ item.patient }}</div>
+                                <div class="text-secondary small">{{ item.ward.name }} · Bed {{ item.bed.bed_number }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No active admissions assigned.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+            </div>
+            </div>
+        </details>
+        </div>
+    </div>
+
+    <div class="col-xl-6">
+        <div class="dashboard-stack">
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Network</span>
+                    <h3 class="h4 mt-3 mb-0">Hospital workload map</h3>
+                    <p class="text-secondary mb-0">A concise view of activity across the hospitals linked to this workspace.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-building"></i><span>{{ network_hospitals|length }} hospitals</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in network_hospitals %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold mb-2">{{ item.name }}</div>
+                    <div class="small text-secondary">Appointments {{ item.appointments }} · Walk-ins {{ item.walk_ins }} · Admissions {{ item.active_admissions }} · Tasks {{ item.tasks }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No affiliated hospitals found for this doctor profile.</div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Documentation</span>
+                    <h3 class="h4 mt-3 mb-0">SOAP note and clinical record</h3>
+                    <p class="text-secondary mb-0">Capture subjective, objective, assessment, and plan notes from the active chart.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-journal-medical"></i><span>Record</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <form method="post" action="{% url 'hospital:create_medical_record' %}" class="stacked-form" data-async-dashboard-form data-async-behavior="medical-record">
+                {% csrf_token %}
+                {% for field in records_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Save record</button>
+            </form>
+            </div>
+        </details>
+
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Tasks</span>
+                    <h3 class="h4 mt-3 mb-0">Clinical task board</h3>
+                    <p class="text-secondary mb-0">Track care coordination items and move them between statuses in place.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-list-check"></i><span>{{ doctor_tasks|length }} tasks</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <form method="post" action="{% url 'hospital:create_doctor_task' %}" class="stacked-form mb-4" data-async-dashboard-form data-async-behavior="doctor-task">
+                {% csrf_token %}
+                {% for field in doctor_task_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Create task</button>
+            </form>
+            <div class="d-grid gap-3" data-scroll-cards id="doctorTaskList">
+                {% for item in doctor_tasks %}
+                <div class="soft-section p-3" data-doctor-task-card="{{ item.id }}">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div>
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="text-secondary small">{{ item.patient|default:"General task" }}{% if item.hospital %} · {{ item.hospital.name }}{% endif %}</div>
+                        </div>
+                        <span class="status-pill {% if item.priority == 'critical' %}danger{% elif item.priority == 'high' %}warning{% endif %}">{{ item.get_priority_display }}</span>
+                    </div>
+                    <div class="text-secondary small mb-3">{{ item.details|default:"No extra task details." }}</div>
+                    <div class="d-flex flex-wrap gap-2" data-doctor-task-actions="{{ item.id }}">
+                        {% if item.status != 'done' %}
+                        <form method="post" action="{% url 'hospital:update_doctor_task_status' item.id 'done' %}" data-async-dashboard-form data-async-behavior="doctor-task-status">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Mark done</button></form>
+                        <form method="post" action="{% url 'hospital:update_doctor_task_status' item.id 'in_progress' %}" data-async-dashboard-form data-async-behavior="doctor-task-status">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">In progress</button></form>
+                        {% else %}
+                        <span class="status-pill"><i class="bi bi-check2-circle"></i>Completed</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center" data-doctor-task-empty>
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-check2-all fs-2"></i></div>
+                    <div class="fw-semibold">All follow-up tasks are complete</div>
+                    <div class="text-secondary small">New clinical tasks will appear here as care coordination continues.</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Clinical reference</span>
+                    <h2 class="h4 mt-3 mb-0">Network snapshot and next focus</h2>
+                    <p class="text-secondary mb-0">A concise live briefing for the current chart and surrounding workload.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-stars"></i><span>Brief</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="workspace-brief p-3">
+                <div class="workspace-brief-grid mb-3">
+                    <div class="workspace-brief-item">
+                        <span class="label">Current patient</span>
+                        <span class="value">{{ current_patient|default:"No chart open yet" }}</span>
+                    </div>
+                    <div class="workspace-brief-item">
+                        <span class="label">Pending labs</span>
+                        <span class="value">{{ stats.labs }} items awaiting clinician attention</span>
+                    </div>
+                    <div class="workspace-brief-item">
+                        <span class="label">Cross-hospital reach</span>
+                        <span class="value">{{ stats.hospitals }} affiliated hospitals in view</span>
+                    </div>
+                </div>
+                <div class="workspace-brief-list">
+                    <div class="workspace-brief-list-item">
+                        <i class="bi bi-clipboard2-heart"></i>
+                        <div>
+                            <div class="fw-semibold">Keep documentation tied to the active chart</div>
+                            <div class="text-secondary small">SOAP notes, care plans, referrals, and follow-up tasks stay cleaner when a patient context is opened before charting.</div>
+                        </div>
+                    </div>
+                    <div class="workspace-brief-list-item">
+                        <i class="bi bi-building"></i>
+                        <div>
+                            <div class="fw-semibold">Workload reference</div>
+                            <div class="text-secondary small">
+                                {% if network_hospitals %}
+                                    {% with top_site=network_hospitals|first %}
+                                    {{ top_site.name }} currently has {{ top_site.appointments }} appointments, {{ top_site.walk_ins }} walk-ins, and {{ top_site.tasks }} open tasks.
+                                    {% endwith %}
+                                {% else %}
+                                    Cross-hospital workload guidance will populate here as more affiliated facilities become active.
+                                {% endif %}
+                </div>
+            </div>
+            </div>
+        </details>
+        </div>
+    </div>
+</div>
+
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Care plans</span>
+            <h3 class="h4 mt-3">Treatment plans and milestones</h3>
+            <form method="post" action="{% url 'hospital:create_care_plan' %}" class="stacked-form mb-4" data-async-dashboard-form data-async-behavior="care-plan">
+                {% csrf_token %}
+                {% for field in care_plan_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Save care plan</button>
+            </form>
+            <div class="d-grid gap-3" data-scroll-cards id="carePlanList">
+                {% for item in care_plans %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.title }}</div>
+                    <div class="text-secondary small mb-2">{{ item.patient }}{% if item.timeline %} · {{ item.timeline }}{% endif %}</div>
+                    <div class="text-secondary small">{{ item.goals|truncatechars:130 }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No care plans created yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4" id="doctor-referrals">
+            <span class="section-kicker">Referrals</span>
+            <h3 class="h4 mt-3">Internal referrals and second opinions</h3>
+            <form method="post" action="{% url 'hospital:create_internal_referral' %}" class="stacked-form mb-4" data-async-dashboard-form data-async-behavior="internal-referral">
+                {% csrf_token %}
+                {% for field in internal_referral_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Create referral</button>
+            </form>
+            <div class="d-grid gap-3" data-scroll-cards id="referralOutboundList">
+                {% for item in referrals_outbound %}
+                <div class="soft-section p-3" data-referral-card="{{ item.id }}">
+                    <div class="fw-semibold">{{ item.patient }}</div>
+                    <div class="text-secondary small mb-2">To {{ item.target_doctor|default:"Hospital specialist" }}{% if item.target_hospital %} · {{ item.target_hospital.name }}{% endif %}</div>
+                    <div class="text-secondary small mb-3">{{ item.reason|truncatechars:120 }}</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="status-pill {% if item.priority == 'stat' %}danger{% elif item.priority == 'urgent' %}warning{% endif %}">{{ item.get_priority_display }}</span>
+                        <span class="status-pill" data-referral-status="{{ item.id }}">{{ item.get_status_display }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No outbound referrals yet.</div>
+                {% endfor %}
+            </div>
+            {% if referrals_inbound %}
+            <hr class="my-4">
+            <div class="fw-semibold mb-3">Inbound referrals</div>
+            <div class="d-grid gap-3" data-scroll-cards id="referralInboundList">
+                {% for item in referrals_inbound %}
+                <div class="soft-section p-3" data-referral-card="{{ item.id }}">
+                    <div class="fw-semibold">{{ item.patient }}</div>
+                    <div class="text-secondary small mb-2">From {{ item.referring_doctor|default:"Network clinician" }}{% if item.source_hospital %} · {{ item.source_hospital.name }}{% endif %}</div>
+                    <div class="text-secondary small mb-3">{{ item.reason|truncatechars:120 }}</div>
+                    <div class="d-flex flex-wrap gap-2" data-referral-actions="{{ item.id }}">
+                        <form method="post" action="{% url 'hospital:update_internal_referral_status' item.id 'accepted' %}" data-async-dashboard-form data-async-behavior="referral-status">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Accept</button></form>
+                        <form method="post" action="{% url 'hospital:update_internal_referral_status' item.id 'responded' %}" data-async-dashboard-form data-async-behavior="referral-status">{% csrf_token %}<button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Mark responded</button></form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        </div>
+</div>
+</div>
+ </div>
+{% endblock %}

@@ -1,0 +1,683 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-dashboard-endpoint="{% url 'hospital:dashboard_live_metrics' %}"></div>
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-building-gear"></i> Hospital administration</span>
+            <h1 class="display-6 fw-bold mb-2">{{ hospital.name }}</h1>
+            <p class="text-white-50 mb-0">Manage staff onboarding, patient access, and facility coordination from one hospital workspace.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Facility code</div>
+                <div class="fs-4 fw-bold">{{ hospital.code }}</div>
+                <div class="small text-white-50 mt-3">Ownership</div>
+                <div class="fw-semibold">{{ hospital.owner.get_full_name|default:hospital.owner.username|default:"Unassigned" }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if assistant_watch_items %}
+<div class="card bayafya-watch p-4 mb-4" data-watch-dismiss-url="{% url 'hospital:dismiss_watch_signal' %}">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span><h2 class="h4 mt-3 mb-0">Hospital signals that may need action</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-pill" data-bayafya-watch-count><i class="bi bi-broadcast"></i>{{ assistant_watch_items|length }} signals</span>
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-refresh aria-label="Refresh BayAfya watch">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline">Refresh</span>
+            </button>
+            {% if assistant_watch_items|length > 1 %}
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-toggle aria-expanded="false">Show more</button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="bayafya-watch-list" data-scroll-cards data-bayafya-watch-list>
+        {% for item in assistant_watch_items %}
+        <div class="bayafya-watch-item bayafya-watch-tone-{{ item.tone|default:'primary' }}" data-bayafya-watch-item data-watch-id="{{ item.id }}"{% if forloop.first %} data-watch-active="true"{% endif %}>
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                <div class="fw-semibold">{{ item.title }}</div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="status-pill {% if item.tone == 'danger' %}danger{% elif item.tone == 'warning' %}warning{% endif %}">{{ item.tone|title }}</span>
+                    <button class="bayafya-watch-dismiss" type="button" data-watch-dismiss="{{ item.id }}" aria-label="Dismiss signal"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+            <div class="text-secondary small">{{ item.detail }}</div>
+            {% if item.meta %}<div class="text-secondary small mt-2">{{ item.meta }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card bayafya-watch p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span><h2 class="h4 mt-3 mb-0">Hospital signals that may need action</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-pill"><i class="bi bi-broadcast"></i>0 signals</span>
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-refresh aria-label="Refresh BayAfya watch">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline">Refresh</span>
+            </button>
+        </div>
+    </div>
+    <div class="bayafya-watch-empty empty-state p-4 text-center">
+        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-stars fs-2"></i></div>
+        <div class="fw-semibold">No active watch signals</div>
+        <div class="text-secondary small">BayAfya will surface only fresh operational signals from the last 12 hours or newly detected events.</div>
+    </div>
+</div>
+{% endif %}
+
+<details class="card p-4 mb-4 assistant-access-panel" open>
+    <summary class="d-flex justify-content-between align-items-center list-unstyled">
+        <div><span class="section-kicker"><i class="bi bi-shield-lock"></i>Assistant access</span><h2 class="h4 mt-3 mb-0">Patient record approvals for BayAfya Assistant</h2></div>
+        <span class="mini-icon"><i class="bi bi-stars"></i></span>
+    </summary>
+    <div class="soft-section p-3 mt-3">
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="command-note-stat h-100">
+                    <div class="command-note-label">Active staff</div>
+                    <div class="fw-semibold">{{ active_hospital_staff|length }} staff currently retained in this facility</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="command-note-stat h-100">
+                    <div class="command-note-label">Assistant grants</div>
+                    <div class="fw-semibold">{{ assistant_access_grants|length }} approved patient record grants</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="command-note-stat h-100">
+                    <div class="command-note-label">Open oversight</div>
+                    <div class="fw-semibold">{{ admin_overview.open_supply_requests }} supply requests and {{ admin_overview.critical_incidents }} critical incidents</div>
+                </div>
+            </div>
+        </div>
+        <div class="d-grid gap-3 mb-4">
+            <div class="command-note-item">
+                <span class="mini-icon flex-shrink-0"><i class="bi bi-clipboard2-check"></i></span>
+                <div>
+                    <div class="fw-semibold">Approve patient record access for BayAfya Assistant</div>
+                    <div class="text-secondary small">Select the staff member, the patient, and the duration. Once approved, the assistant can surface the linked record only within the configured hospital scope.</div>
+                </div>
+            </div>
+        </div>
+        <form method="post" action="{% url 'grant_assistant_record_access' %}" class="auth-form">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <div class="form-field-stack">
+                        {{ assistant_access_form.requester.label_tag }}
+                        {{ assistant_access_form.requester }}
+                        {% for error in assistant_access_form.requester.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="form-field-stack">
+                        {{ assistant_access_form.patient.label_tag }}
+                        {{ assistant_access_form.patient }}
+                        {% for error in assistant_access_form.patient.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="form-field-stack">
+                        {{ assistant_access_form.expires_at.label_tag }}
+                        {{ assistant_access_form.expires_at }}
+                        {% for error in assistant_access_form.expires_at.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-field-stack">
+                        {{ assistant_access_form.reason.label_tag }}
+                        {{ assistant_access_form.reason }}
+                        {% for error in assistant_access_form.reason.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="col-12 pt-2">
+                    <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-shield-check"></i><span>Approve record access</span></button>
+                </div>
+            </div>
+        </form>
+        <div class="mt-4">
+            <div class="fw-semibold mb-3">Recent approvals</div>
+            <div class="d-grid gap-3">
+                {% for grant in assistant_access_grants %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                        <div>
+                            <div class="fw-semibold">{{ grant.requester.get_full_name|default:grant.requester.username }}</div>
+                            <div class="text-secondary small">Patient: {{ grant.patient_user.get_full_name|default:grant.patient_user.username }}</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-check2-circle"></i>Approved</span>
+                    </div>
+                    <div class="text-secondary small mt-2">
+                        {% if grant.reason %}{{ grant.reason }}{% else %}Hospital-approved record access via BayAfya Assistant.{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-shield-lock fs-2"></i></div>
+                    <div class="fw-semibold">No approved assistant grants yet</div>
+                    <div class="text-secondary small">Grant access once the staff member is cleared to review a patient record through BayAfya Assistant.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</details>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-building-gear"></i><span>Live hospital overview</span></span>
+        <span class="metric-overview-meta">11 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        {% for item in admin_stat_cards %}
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi {{ item.icon }}"></i></span>
+            <span class="metric-overview-label">{{ item.label }}</span>
+            <strong class="metric-overview-value" data-live-metric="{{ item.metric }}">{{ item.value }}</strong>
+        </div>
+        {% endfor %}
+        {% for item in admin_secondary_stat_cards %}
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi {{ item.icon }}"></i></span>
+            <span class="metric-overview-label">{{ item.label }}</span>
+            <strong class="metric-overview-value" data-live-metric="{{ item.metric }}">{{ item.value }}</strong>
+        </div>
+        {% endfor %}
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    {% for item in admin_stat_cards %}
+    <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+            <div class="metric-icon mb-3"><i class="bi {{ item.icon }} fs-4"></i></div>
+            <div class="text-uppercase small text-secondary">{{ item.label }}</div>
+            <div class="display-6 fw-bold" data-live-metric="{{ item.metric }}">{{ item.value }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    {% for item in admin_secondary_stat_cards %}
+    <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+            <div class="metric-icon mb-3"><i class="bi {{ item.icon }} fs-4"></i></div>
+            <div class="text-uppercase small text-secondary">{{ item.label }}</div>
+            <div class="display-6 fw-bold" data-live-metric="{{ item.metric }}">{{ item.value }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <a class="module-link" href="{% url 'hospital:patient_registry' %}">
+            <div class="feature-card h-100 p-4">
+                <div class="feature-icon mb-3"><i class="bi bi-people fs-4"></i></div>
+                <h3 class="h5 mb-2">Patient registry</h3>
+                <p class="text-secondary mb-0">Review full patient lists, conditions, and follow-up pathways.</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-lg-4">
+        <a class="module-link" href="{% url 'hospital:clinical_insights' %}">
+            <div class="feature-card h-100 p-4">
+                <div class="feature-icon mb-3"><i class="bi bi-graph-up-arrow fs-4"></i></div>
+                <h3 class="h5 mb-2">Clinical insights</h3>
+                <p class="text-secondary mb-0">See active conditions, age groups, and hospital-wide care patterns.</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-lg-4">
+        <a class="module-link" href="{% url 'hospital:surgery_dashboard' %}">
+            <div class="feature-card h-100 p-4">
+                <div class="feature-icon mb-3"><i class="bi bi-scissors fs-4"></i></div>
+                <h3 class="h5 mb-2">Surgical services</h3>
+                <p class="text-secondary mb-0">Schedule operations and manage theatre stages.</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+{% if latest_invitation_code %}
+<div class="alert alert-success border-0 mb-4">
+    <div class="fw-semibold mb-1">Latest authorization code</div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <code class="px-3 py-2 rounded-3 bg-white text-success-emphasis">{{ latest_invitation_code }}</code>
+        <span class="small">Share this code securely with the intended user.</span>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-xl-6">
+        <details class="card p-4 h-100 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Access control</span>
+                    <h2 class="h4 mt-3 mb-0">Issue authorization code</h2>
+                    <p class="text-secondary mb-0">Create a secure code for staff, patients, or collaborators to join the facility.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-key"></i><span>Generate</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <form method="post" action="{% url 'hospital:create_invitation' %}" class="auth-form">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in hospital_form %}
+                    <div class="col-12 {% if field.name != 'note' %}col-md-6{% endif %}">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="col-12 pt-2">
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-shield-check"></i><span>Generate code</span></button>
+                    </div>
+                </div>
+            </form>
+            </div>
+        </details>
+    </div>
+    <div class="col-xl-6">
+        <details class="card p-4 h-100 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Onboarded users</span>
+                    <h2 class="h4 mt-3 mb-0">Facility access management</h2>
+                    <p class="text-secondary mb-0">Review who is active, revoked, or left, and adjust access quickly.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-people"></i><span>{{ hospital_staff|length }} people</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for access in hospital_staff %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ access.user.get_full_name|default:access.user.username }}</div>
+                            <div class="text-secondary small">{{ access.get_role_display }}</div>
+                        </div>
+                        <div class="d-flex flex-column align-items-end gap-2">
+                            {% if access.status == 'active' %}
+                                <span class="status-pill success"><i class="bi bi-check2-circle"></i>Active</span>
+                            {% elif access.status == 'revoked' %}
+                                <span class="status-pill danger"><i class="bi bi-slash-circle"></i>Revoked</span>
+                            {% elif access.status == 'left' %}
+                                <span class="status-pill warning"><i class="bi bi-box-arrow-right"></i>Left</span>
+                            {% endif %}
+                            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                                {% if access.is_primary %}
+                                    <span class="status-pill"><i class="bi bi-star-fill"></i>Primary</span>
+                                {% endif %}
+                                {% if access.status == 'active' %}
+                                <form method="post" action="{% url 'update_hospital_access_status' %}" class="m-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="access_id" value="{{ access.id }}">
+                                    <input type="hidden" name="action" value="revoke">
+                                    <input type="hidden" name="reason" value="Revoked from admin dashboard">
+                                    <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Revoke</button>
+                                </form>
+                                {% else %}
+                                <form method="post" action="{% url 'update_hospital_access_status' %}" class="m-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="access_id" value="{{ access.id }}">
+                                    <input type="hidden" name="action" value="restore">
+                                    <button class="bh-btn bh-btn-inline bh-btn-outline-light" type="submit">Restore</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-person-plus fs-2"></i></div>
+                    <div class="fw-semibold">No staff access yet</div>
+                    <div class="text-secondary small">Generate a code to invite staff, patients, and facility collaborators.</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+    </div>
+</div>
+
+<div class="row g-4 mt-0">
+    <div class="col-xl-6">
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Invitations</span>
+                    <h2 class="h4 mt-3 mb-0">Issued authorization codes</h2>
+                    <p class="text-secondary mb-0">Track active, redeemed, and inactive invite codes from one place.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-ticket-perforated"></i><span>{{ hospital_invitations|length }} codes</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for invitation in hospital_invitations %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                        <div>
+                            <div class="fw-semibold">{{ invitation.code }}</div>
+                            <div class="text-secondary small">{{ invitation.get_role_display }}{% if invitation.invitee_name %} · {{ invitation.invitee_name }}{% endif %}</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            {% if invitation.redeemed_at %}
+                                <span class="status-pill"><i class="bi bi-check2-circle"></i>Redeemed</span>
+                            {% elif invitation.is_active %}
+                                <span class="status-pill"><i class="bi bi-clock"></i>Active</span>
+                            {% else %}
+                                <span class="status-pill"><i class="bi bi-x-circle"></i>Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-ticket-perforated fs-2"></i></div>
+                    <div class="fw-semibold">No authorization codes yet</div>
+                    <div class="text-secondary small">Generate the first access code for a doctor, staff member, or patient.</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Workforce command</span>
+                    <h2 class="h4 mt-3 mb-0">Assign shifts and monitor wages</h2>
+                    <p class="text-secondary mb-0">Manage staffing coverage, pay estimates, and active shifts for today.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-people"></i><span>{{ todays_shift_assignments|length }} on shift</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <form method="post" action="{% url 'hospital:create_shift_assignment' %}" class="auth-form mb-4" data-async-dashboard-form data-async-behavior="live-root-refresh" data-shift-staff-url="{% url 'hospital:eligible_shift_staff' %}">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in shift_assignment_form %}
+                    <div class="col-12 {% if field.name == 'staff' or field.name == 'shift_date' or field.name == 'start_time' or field.name == 'end_time' %}col-md-6{% endif %}">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="col-12">
+                        <div class="text-secondary small mb-2">Only staff with active access, remaining weekly hours, and no overlapping shift in the selected window are shown.</div>
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-calendar-plus"></i><span>Assign shift</span></button>
+                    </div>
+                </div>
+            </form>
+            <div class="soft-section p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div class="fw-semibold">Today’s wage estimate</div>
+                        <div class="text-secondary small">Projected from assigned hours and each staff member’s hourly rate.</div>
+                    </div>
+                    <span class="status-pill success"><i class="bi bi-cash-stack"></i>KES {{ todays_shift_cost }}</span>
+                </div>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in todays_shift_assignments %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ item.staff.user.get_full_name|default:item.staff.user.username }}</div>
+                            <div class="text-secondary small">{{ item.staff.get_role_display }} · {{ item.staff.department|default:"General services" }}</div>
+                            <div class="text-secondary small mt-1">{{ item.shift_date|date:"Y-m-d" }} · {{ item.start_time|time:"H:i" }} - {{ item.end_time|time:"H:i" }}</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-clock-history"></i>On shift</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-calendar-plus fs-2"></i></div>
+                    <div class="fw-semibold">No shifts assigned for today</div>
+                <div class="text-secondary small">Assign a shift so staff and administrators can see who is currently covering this facility.</div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="soft-section p-3 mt-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div>
+                        <div class="fw-semibold">Shift schedule window</div>
+                        <div class="text-secondary small">Review current staffing plans by day, week, month, or a custom range.</div>
+                    </div>
+                    <span class="status-pill"><i class="bi bi-calendar3"></i>{{ shift_window_label }}</span>
+                </div>
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="adminShiftWindow">Window</label>
+                        <select class="form-select" id="adminShiftWindow" name="shift_window">
+                            <option value="day" {% if shift_window == "day" %}selected{% endif %}>Day</option>
+                            <option value="week" {% if shift_window == "week" %}selected{% endif %}>Week</option>
+                            <option value="month" {% if shift_window == "month" %}selected{% endif %}>Month</option>
+                            <option value="custom" {% if shift_window == "custom" %}selected{% endif %}>Custom</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label" for="adminShiftStart">Start</label>
+                        <input class="form-control" id="adminShiftStart" type="date" name="shift_window_start" value="{{ shift_window_start|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label" for="adminShiftEnd">End</label>
+                        <input class="form-control" id="adminShiftEnd" type="date" name="shift_window_end" value="{{ shift_window_end|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button class="bh-btn bh-btn-outline w-100" type="submit"><i class="bi bi-funnel"></i><span>View</span></button>
+                    </div>
+                </form>
+                <div class="d-grid gap-3 mt-3" data-scroll-cards>
+                    {% for item in filtered_shift_assignments %}
+                    <div class="soft-section p-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div>
+                                <div class="fw-semibold">{{ item.staff.user.get_full_name|default:item.staff.user.username }}</div>
+                                <div class="text-secondary small">{{ item.staff.get_role_display }} · {{ item.staff.department|default:"General services" }}</div>
+                                <div class="text-secondary small mt-1">{{ item.shift_date|date:"Y-m-d" }} · {{ item.start_time|time:"H:i" }} - {{ item.end_time|time:"H:i" }}</div>
+                            </div>
+                            <span class="status-pill"><i class="bi bi-clock-history"></i>Scheduled</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-secondary small">No shifts are scheduled in the selected period yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            </div>
+        </details>
+    </div>
+    <div class="col-xl-6">
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Hospital setup</span>
+                    <h2 class="h4 mt-3 mb-0">Facility details</h2>
+                    <p class="text-secondary mb-0">Quick reference for the active hospital configuration and identity.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-building"></i><span>Facility</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="list-group list-group-flush list-soft">
+                <div class="list-group-item d-flex justify-content-between px-0"><span>Hospital name</span><strong>{{ hospital.name }}</strong></div>
+                <div class="list-group-item d-flex justify-content-between px-0"><span>Code</span><strong>{{ hospital.code }}</strong></div>
+                <div class="list-group-item d-flex justify-content-between px-0"><span>Status</span><strong>{% if hospital.is_active %}Active{% else %}Inactive{% endif %}</strong></div>
+                <div class="list-group-item d-flex justify-content-between px-0"><span>Address</span><strong>{{ hospital.address|default:"Not provided" }}</strong></div>
+            </div>
+            </div>
+        </details>
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Clinical snapshot</span>
+                    <h2 class="h4 mt-3 mb-0">Top conditions</h2>
+                    <p class="text-secondary mb-0">A quick look at the strongest condition patterns in this facility.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-clipboard2-pulse"></i><span>{{ clinical_insights.top_conditions|length }} items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in clinical_insights.top_conditions %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">{{ item.label }}</span>
+                        <span class="status-pill">{{ item.value }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-clipboard2-pulse fs-2"></i></div>
+                    <div class="fw-semibold">No condition data yet</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Surgery</span>
+                    <h2 class="h4 mt-3 mb-0">Upcoming cases</h2>
+                    <p class="text-secondary mb-0">The next operating room cases queued for the network.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-scissors"></i><span>{{ surgery_overview.upcoming_cases|length }} cases</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for case in surgery_overview.upcoming_cases %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ case.procedure_name }}</div>
+                    <div class="text-secondary small">{{ case.patient }} · {{ case.scheduled_start|date:"Y-m-d H:i" }}</div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-scissors fs-2"></i></div>
+                    <div class="fw-semibold">No surgeries scheduled</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+    </div>
+</div>
+
+<div class="row g-4 mt-0">
+    <div class="col-xl-4">
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Procurement</span>
+                    <h2 class="h4 mt-3 mb-0">Supply requests</h2>
+                    <p class="text-secondary mb-0">Materials that need review or fulfilment from the procurement flow.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-box-seam"></i><span>{{ supply_requests|length }} requests</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in supply_requests %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ item.item_name }}</div>
+                            <div class="text-secondary small">{{ item.department|default:"General" }} · {{ item.quantity }} units · {{ item.get_status_display }}</div>
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            {% if item.status != "in_review" %}
+                            <form method="post" action="{% url 'hospital:update_supply_request_status' item.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="status" value="in_review">
+                                <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Review</button>
+                            </form>
+                            {% endif %}
+                            {% if item.status != "fulfilled" %}
+                            <form method="post" action="{% url 'hospital:update_supply_request_status' item.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="status" value="fulfilled">
+                                <button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Fulfill</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No supply requests yet.</div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+    </div>
+    <div class="col-xl-4">
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Emergency oversight</span>
+                    <h2 class="h4 mt-3 mb-0">Active incidents</h2>
+                    <p class="text-secondary mb-0">Live incidents that need coordination or status follow-up.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-broadcast-pin"></i><span>{{ emergency_incidents|length }} incidents</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in emergency_incidents %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.title }}</div>
+                    <div class="text-secondary small">{{ item.location|default:"Location pending" }} · {{ item.get_status_display }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No emergency incidents logged.</div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+    </div>
+    <div class="col-xl-4">
+        <details class="card p-4 mt-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Clinical operations</span>
+                    <h2 class="h4 mt-3 mb-0">QC and handovers</h2>
+                    <p class="text-secondary mb-0">Recent analyzer checks and nurse handovers for current hospital operations.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-clipboard2-pulse"></i><span>{{ lab_qc_logs|length }} QC</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3 mb-4" data-scroll-cards>
+                {% for item in lab_qc_logs %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.analyzer_name }}</div>
+                    <div class="text-secondary small">{{ item.get_qc_status_display }} · {{ item.recorded_at|date:"Y-m-d H:i" }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No QC logs recorded yet.</div>
+                {% endfor %}
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in shift_handovers %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.staff.user.get_full_name|default:"Nurse handover" }}</div>
+                    <div class="text-secondary small">{{ item.summary|truncatechars:96 }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No shift handovers recorded yet.</div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+    </div>
+ </div>
+ </div>
+{% endblock %}

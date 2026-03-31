@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="surface-card legal-page-shell p-4 p-lg-5">
+    <span class="section-kicker">Terms</span>
+    <h1 class="h2 fw-bold mt-2">BayAfya terms and conditions</h1>
+    <p class="text-secondary mb-4">Use of BayAfya is governed by hospital-approved access, patient privacy rules, clinical governance, and responsible operational conduct.</p>
+    <div class="legal-accordion">
+        <details class="legal-accordion-item" open>
+            <summary><span class="legal-step">1</span><span>Authorized access and identity responsibility</span></summary>
+            <div class="legal-accordion-body">Only approved users may access BayAfya within their assigned role and hospital scope. Users must keep their credentials secure, use the correct profile type, and avoid sharing accounts or bypassing hospital approval paths.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">2</span><span>Clinical use and professional judgment</span></summary>
+            <div class="legal-accordion-body">BayAfya supports care coordination, documentation, and workflow management. It does not replace clinician judgment, escalation policy, or formal hospital procedure. AI-supported outputs must be reviewed in context before action.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">3</span><span>Patient record handling</span></summary>
+            <div class="legal-accordion-body">Patient records must be accessed only for approved care, operational, or governance purposes. Unauthorized browsing, copying, or disclosure of patient information is prohibited and may trigger audit review.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">4</span><span>Hospital workflow integrity</span></summary>
+            <div class="legal-accordion-body">Reception, triage, consultation, laboratory, pharmacy, surgery, and admissions workflows should be recorded in BayAfya as accurately and promptly as possible so teams remain aligned and the patient journey is not fragmented.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">5</span><span>Cross-hospital participation</span></summary>
+            <div class="legal-accordion-body">A single user identity may operate across multiple hospitals where access is approved. Cross-hospital data visibility remains limited to approved scope, patient consent paths, and hospital governance rules.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">6</span><span>Platform misuse and enforcement</span></summary>
+            <div class="legal-accordion-body">BayAfya may restrict or revoke access for misuse, unsafe behavior, policy violations, or security concerns. Hospital leadership may review audit trails and activity records where necessary.</div>
+        </details>
+    </div>
+</section>
+{% endblock %}

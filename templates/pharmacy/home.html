@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-capsule-pill"></i> Digital medicine access</span>
+            <h1 class="display-6 fw-bold mb-2">Online pharmacy</h1>
+            <p class="text-white-50 mb-0">Browse available medicines, review prescription requirements, and place medication orders through a retail-grade clinical interface.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <a class="bh-btn bh-btn-surface" href="{% url 'pharmacy:checkout' %}"><i class="bi bi-bag-check"></i><span>Checkout</span></a>
+        </div>
+    </div>
+</section>
+<div class="row g-4">
+    {% for medicine in medicines %}
+        <div class="col-md-4">
+            <div class="card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="feature-icon"><i class="bi bi-capsule fs-4"></i></div>
+                    {% if medicine.requires_prescription %}
+                        <span class="status-pill warning"><i class="bi bi-file-earmark-medical"></i>Prescription</span>
+                    {% else %}
+                        <span class="status-pill success"><i class="bi bi-bag-plus"></i>OTC</span>
+                    {% endif %}
+                </div>
+                <h3 class="h4">{{ medicine.name }}</h3>
+                <p class="text-secondary">{{ medicine.description|default:"No description available." }}</p>
+                <div class="d-flex justify-content-between align-items-center mt-auto mb-3">
+                    <p class="fw-semibold fs-4 mb-0">{{ medicine.price }}</p>
+                    <p class="small text-muted mb-0">Stock: {{ medicine.stock_quantity }}</p>
+                </div>
+                <form method="post" action="{% url 'pharmacy:add_to_cart' medicine.id %}" class="mt-auto" data-async-cart-form>
+                    {% csrf_token %}
+                    <button class="bh-btn bh-btn-primary" type="submit">Add to cart</button>
+                </form>
+            </div>
+        </div>
+    {% empty %}
+        <p>No medicines configured.</p>
+    {% endfor %}
+</div>
+{% endblock %}

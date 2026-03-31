@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4 align-items-stretch">
+    <div class="col-lg-4">
+        <div class="banner-card p-4 h-100">
+            <span class="hero-chip mb-3"><i class="bi bi-calendar2-heart"></i> Care scheduling</span>
+            <h1 class="h2 fw-bold">Book your next consultation.</h1>
+            <p class="text-white-50 mb-0">Select a clinician, reserve a care slot, and capture the reason for visit with a cleaner scheduling experience.</p>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-4 p-lg-5">
+            <span class="section-kicker">Appointments</span>
+            <h2 class="h2 mt-3 mb-4">Book appointment</h2>
+            <form method="post" class="row g-3 auth-form">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="col-md-6 {% if field.name == 'reason' %}col-12{% endif %}">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+                {% for error in form.non_field_errors %}<div class="col-12"><div class="bh-field-error">{{ error }}</div></div>{% endfor %}
+                <div class="col-12 pt-2"><button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-send-check"></i><span>Submit booking</span></button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

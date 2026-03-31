@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page-shell">
+<div class="card auth-card overflow-hidden">
+    <div class="row g-0">
+        <div class="col-lg-6 auth-visual auth-carousel-shell p-3 p-lg-4 d-flex flex-column">
+            <div class="auth-carousel-card h-100">
+                {% if verified %}
+                    <span class="hero-chip mb-3"><i class="bi bi-check2-circle"></i> Email verified</span>
+                    <h1 class="auth-carousel-title fw-bold mb-2">Your BayAfya account is ready.</h1>
+                    <p class="text-white-50 mb-3 auth-carousel-copy">Your email has been confirmed. You can now sign in and continue into the workspace tied to this account.</p>
+                {% elif verified is None %}
+                    <span class="hero-chip mb-3"><i class="bi bi-123"></i> Verification code</span>
+                    <h1 class="auth-carousel-title fw-bold mb-2">Enter the 7-digit code from your email.</h1>
+                    <p class="text-white-50 mb-3 auth-carousel-copy">BayAfya verifies email ownership with a short numeric code before your first secure sign-in.</p>
+                {% else %}
+                    <span class="hero-chip mb-3"><i class="bi bi-exclamation-triangle"></i> Verification code expired</span>
+                    <h1 class="auth-carousel-title fw-bold mb-2">That verification code is no longer valid.</h1>
+                    <p class="text-white-50 mb-3 auth-carousel-copy">You can request a new verification message and complete setup from there.</p>
+                {% endif %}
+                <div class="auth-carousel-list">
+                    <div class="auth-carousel-list-item"><i class="bi bi-shield-check"></i><span>Verification keeps your BayAfya identity secure.</span></div>
+                    <div class="auth-carousel-list-item"><i class="bi bi-arrow-repeat"></i><span>The confirmation step updates your account immediately.</span></div>
+                    <div class="auth-carousel-list-item"><i class="bi bi-person-check"></i><span>After confirmation, login resumes with the same profile.</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 p-2 pt-0 p-lg-3 pt-lg-0 d-flex flex-column justify-content-center auth-form-panel">
+            <div class="auth-form-header">
+                <span class="section-kicker auth-top-badge">Authentication</span>
+                <div class="auth-brand-row">
+                    <span class="navbar-brand-badge auth-form-logo"><i class="bi bi-heart-pulse-fill"></i></span>
+                    <div>
+                        <div class="auth-form-title">{% if verified %}Verification complete{% elif verified is None %}Verify email{% else %}Verification required{% endif %}</div>
+                        <div class="small text-secondary">{% if verified %}You may sign in now.{% elif verified is None %}Enter the code we sent to your email address.{% else %}Request a new code to finish verification.{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+            {% if verified is None %}
+                <div class="email-verification-shell mb-3" data-email-verification-shell>
+                    <form method="post" class="auth-form auth-stack mb-3" data-email-verification-form>
+                        {% csrf_token %}
+                        <div class="form-field-stack">
+                            {{ form.email.label_tag }}
+                            {{ form.email }}
+                        </div>
+                        <input type="hidden" name="code" value="" data-email-verification-code>
+                        <div class="form-field-stack">
+                            <label class="form-label">Verification code</label>
+                            <div class="email-verification-code-grid" data-email-verification-grid>
+                                {% for _ in "1234567" %}
+                                <input
+                                    type="text"
+                                    class="form-control email-verification-digit"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    maxlength="1"
+                                    autocomplete="one-time-code"
+                                    data-verification-digit
+                                >
+                                {% endfor %}
+                            </div>
+                            <div class="bh-field-help" data-email-verification-feedback>
+                                {% if locked_until %}
+                                    Verification is locked until {{ locked_until|date:"Y-m-d H:i" }}. Please try again tomorrow.
+                                {% else %}
+                                    Enter the 7-digit code. BayAfya will verify it immediately after the last digit.
+                                {% endif %}
+                            </div>
+                        </div>
+                        <button class="bh-btn bh-btn-primary d-none" type="submit" data-auth-submit><i class="bi bi-shield-check"></i><span>Verify email</span></button>
+                    </form>
+                    <div class="auth-inline-actions">
+                        <a class="bh-btn bh-btn-primary" href="{% url 'login' %}" data-auth-link><i class="bi bi-box-arrow-in-right"></i><span>Sign in</span></a>
+                        <a class="bh-btn bh-btn-outline-light" href="{{ resend_url|default:'#' }}" data-auth-link><i class="bi bi-send-check"></i><span>Resend email</span></a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="soft-section p-4 mb-3">
+                    <div class="fw-semibold mb-1">{% if verified %}Next step{% else %}Need a new code?{% endif %}</div>
+                    <div class="text-secondary small">
+                        {% if verified %}
+                            Use the login screen to enter BayAfya with the password you set during registration.
+                        {% else %}
+                            The old code is invalid or expired. We can send a fresh verification email right away.
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            {% if verified is not None %}
+                <div class="auth-inline-actions">
+                    <a class="bh-btn bh-btn-primary" href="{% url 'login' %}" data-auth-link><i class="bi bi-box-arrow-in-right"></i><span>Sign in</span></a>
+                    {% if not verified %}
+                        <a class="bh-btn bh-btn-outline-light" href="{{ resend_url|default:'#' }}" data-auth-link><i class="bi bi-send-check"></i><span>Resend email</span></a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

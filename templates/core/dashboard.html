@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card role-hero p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi {{ dashboard_experience.accent_icon }}"></i> {{ dashboard_experience.kicker }}</span>
+            <h1 class="display-6 fw-bold mb-2 d-flex align-items-center gap-3 flex-wrap">
+                {% if avatar_data.url %}
+                    <span class="profile-avatar-lg"><img src="{{ avatar_data.url }}" alt="{{ avatar_data.alt }}" class="avatar-image"></span>
+                {% else %}
+                    <span class="profile-avatar-lg"><i class="bi bi-person-circle"></i></span>
+                {% endif %}
+                <span>Welcome, {{ user.get_full_name|default:user.username }}</span>
+            </h1>
+            <p class="text-white fs-5 mb-2">{{ dashboard_experience.headline }}</p>
+            <p class="text-white-50 mb-0">{{ dashboard_experience.summary }}</p>
+        </div>
+        <div class="col-lg-4">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50 mb-1">Role</div>
+                <div class="fs-3 fw-bold">{{ user.get_role_display }}</div>
+                <div class="small text-white-50 mt-3">Workspace</div>
+                <div class="fs-5 fw-semibold">{% if current_hospital %}{{ current_hospital.name }}{% else %}Personal care view{% endif %}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi {{ dashboard_experience.accent_icon }}"></i><span>Live workspace summary</span></span>
+        <span class="metric-overview-meta">{{ metric_cards|length }} metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        {% for item in metric_cards %}
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi {{ item.icon }}"></i></span>
+            <span class="metric-overview-label">{{ item.label|cut:"_" }}</span>
+            <strong class="metric-overview-value">{{ item.value }}</strong>
+        </div>
+        {% endfor %}
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    {% for item in metric_cards %}
+        <div class="col-sm-6 col-xl-3 stagger-in">
+            {% if item.url %}<a class="metric-link" href="{{ item.url }}">{% endif %}
+            <div class="metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="metric-icon"><i class="bi {{ item.icon }} fs-5"></i></div>
+                    <span class="status-pill"><i class="bi bi-activity"></i>Active</span>
+                </div>
+                <div class="text-uppercase small text-secondary">{{ item.label|cut:"_" }}</div>
+                <div class="display-6 fw-bold">{{ item.value }}</div>
+            </div>
+            {% if item.url %}</a>{% endif %}
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="empty-state p-4 p-lg-5 text-center">
+                <div class="empty-illustration mx-auto mb-3"><i class="bi {{ dashboard_experience.accent_icon }} fs-2"></i></div>
+                <h2 class="h3">{{ dashboard_experience.empty_title }}</h2>
+                <p class="text-secondary mb-0">{{ dashboard_experience.empty_copy }}</p>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+            <span class="section-kicker">{{ dashboard_experience.chart_title }}</span>
+            <h2 class="h3 mt-3 mb-0">Service activity</h2>
+                </div>
+                <span class="mini-icon"><i class="bi bi-activity"></i></span>
+            </div>
+            {% if dashboard_experience.chart_data %}
+                <div class="chart-card p-4">
+                    {% for item in dashboard_experience.chart_data %}
+                        <div class="chart-row">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-semibold">{{ item.label }}</span>
+                                <span class="text-secondary small">{{ item.value }}</span>
+                            </div>
+                            <div class="chart-bar-track">
+                                <div class="chart-bar-fill" style="width: {% widthratio item.value dashboard_experience.max_chart 100 %}%"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-bar-chart fs-2"></i></div>
+                    <div class="fw-semibold">No chart data available</div>
+                    <div class="text-secondary">Metrics will appear here once care activity begins.</div>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if upcoming_appointments %}
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Upcoming schedule</span><h2 class="h3 mt-3 mb-0">Priority appointments</h2></div>
+                <i class="bi bi-calendar2-week fs-2 text-secondary"></i>
+            </div>
+            <div class="card-grid-scroll" data-scroll-cards>
+                {% for item in upcoming_appointments %}
+                <div class="card-grid-item">
+                    <div class="schedule-card h-100">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div class="schedule-card-meta">
+                                <div class="schedule-card-title">{{ item.doctor }}</div>
+                                <div class="schedule-card-subtitle">{{ item.appointment_date }} at {{ item.appointment_time }}</div>
+                            </div>
+                            <span class="status-pill schedule-card-status"><i class="bi bi-activity"></i>{{ item.get_status_display }}</span>
+                        </div>
+                        {% if item.reason %}
+                        <div class="schedule-card-reason">{{ item.reason }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="card p-4 mb-4">
+            <div class="empty-state p-4 text-center">
+                <div class="empty-illustration mx-auto mb-3"><i class="bi bi-calendar-heart fs-2"></i></div>
+                <h2 class="h4">No upcoming appointments</h2>
+                <p class="text-secondary mb-0">Once consultations are confirmed, they will appear here for quick reference.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Platform shortcuts</span><h2 class="h3 mt-3 mb-0">Navigate the care network</h2></div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6"><a class="module-link" href="{% url 'hospital:dashboard' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-hospital fs-4"></i></div><h3 class="h5">Hospital Services</h3><p class="text-secondary mb-0">Appointments, records, wards, billing, and patient flow.</p></div></a></div>
+                <div class="col-md-6"><a class="module-link" href="{% url 'telemedicine:dashboard' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-camera-video fs-4"></i></div><h3 class="h5">Telemedicine</h3><p class="text-secondary mb-0">Virtual consultation rooms, reports, and secure follow-up care.</p></div></a></div>
+                <div class="col-md-6"><a class="module-link" href="{% url 'pharmacy:home' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-capsule-pill fs-4"></i></div><h3 class="h5">Pharmacy</h3><p class="text-secondary mb-0">Medication access, stock control, and dispensing workflows.</p></div></a></div>
+                <div class="col-md-6"><a class="module-link" href="{% url 'ambulance:request' %}"><div class="feature-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-truck-front fs-4"></i></div><h3 class="h5">Emergency Response</h3><p class="text-secondary mb-0">Urgent requests, dispatch tracking, and ambulance coordination.</p></div></a></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="insight-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Role insight</span><h2 class="h4 mt-3 mb-0">Today’s focus</h2></div>
+                <i class="bi {{ dashboard_experience.accent_icon }} fs-3 text-secondary"></i>
+            </div>
+            <p class="text-secondary mb-0">{{ dashboard_experience.summary }}</p>
+        </div>
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Alerts</span><h2 class="h4 mt-3 mb-0">Recent notifications</h2></div>
+                <i class="bi bi-bell fs-3 text-secondary"></i>
+            </div>
+            <ul class="list-group list-group-flush list-soft" data-scroll-cards>
+                {% for notification in notifications %}
+                    <li class="list-group-item">
+                        <div class="d-flex gap-3">
+                            <span class="mini-icon"><i class="bi bi-check2-circle"></i></span>
+                            <div><div class="fw-semibold">{{ notification.title }}</div><div class="text-secondary small">{{ notification.message }}</div></div>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item">
+                        <div class="empty-state p-3 text-center">
+                            <div class="empty-illustration mx-auto mb-3"><i class="bi bi-bell-slash fs-2"></i></div>
+                            <div class="fw-semibold">No notifications yet</div>
+                            <div class="text-secondary small">System alerts and care updates will appear here.</div>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="card p-4">
+            <div id="dashboardCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    <div class="carousel-item active"><div class="carousel-surface p-4 d-flex flex-column justify-content-center"><span class="hero-chip mb-3"><i class="bi bi-heart-pulse"></i> Care coordination</span><h3 class="fw-bold">Track appointments, records, pharmacy activity, and emergency requests in one view.</h3><p class="mb-0 text-white-50">Clinical and service updates remain tied to the patient record for clear follow-through.</p></div></div>
+                    <div class="carousel-item"><div class="carousel-surface p-4 d-flex flex-column justify-content-center"><span class="hero-chip mb-3"><i class="bi bi-lightning-charge"></i> Live services</span><h3 class="fw-bold">Notifications arrive as care events occur across the platform.</h3><p class="mb-0 text-white-50">Teams can respond to new bookings, pharmacy orders, and emergency requests without delay.</p></div></div>
+                    <div class="carousel-item"><div class="carousel-surface p-4 d-flex flex-column justify-content-center"><span class="hero-chip mb-3"><i class="bi bi-shield-check"></i> Trusted care</span><h3 class="fw-bold">A steady hospital interface supports confident daily operations.</h3><p class="mb-0 text-white-50">Patient care stays clear, calm, and easy to review across every service line.</p></div></div>
+                </div>
+                <div class="d-flex justify-content-between mt-3">
+                    <button class="bh-btn bh-btn-surface bh-btn-inline" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="prev" aria-label="Previous slide"><i class="bi bi-arrow-left"></i></button>
+                    <button class="bh-btn bh-btn-surface bh-btn-inline" type="button" data-bs-target="#dashboardCarousel" data-bs-slide="next" aria-label="Next slide"><i class="bi bi-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

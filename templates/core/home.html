@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero p-4 p-lg-5 mb-5">
+    <div class="row align-items-center g-4 h-100">
+        <div class="col-lg-7 hero-content">
+            <span class="hero-chip mb-3"><i class="bi bi-shield-check"></i> Trusted digital care coordination</span>
+            <h1 class="display-4 fw-bold mb-3">A hospital management platform for appointments, records, pharmacy, wards, laboratory work, and emergency response.</h1>
+            <p class="lead text-white-50 mb-4">BayAfya brings patient care, clinical documentation, admissions, medicines, and urgent response into one connected hospital service environment.</p>
+            <div class="d-flex flex-wrap gap-3">
+                <a class="bh-btn bh-btn-surface" href="{% url 'register' %}"><i class="bi bi-person-plus"></i><span>Create account</span></a>
+                <a class="bh-btn bh-btn-outline" href="{% url 'login' %}"><i class="bi bi-box-arrow-in-right"></i><span>Sign in</span></a>
+            </div>
+            <div class="row g-3 mt-4">
+                <div class="col-sm-4"><div class="hero-floating-card p-3"><div class="small text-white-50">Care domains</div><div class="fs-3 fw-bold">6</div></div></div>
+                <div class="col-sm-4"><div class="hero-floating-card p-3"><div class="small text-white-50">Real-time modules</div><div class="fs-3 fw-bold">Live</div></div></div>
+                <div class="col-sm-4"><div class="hero-floating-card p-3"><div class="small text-white-50">Experience</div><div class="fs-3 fw-bold">Unified</div></div></div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="hero-floating-card p-4">
+                <div id="homeHighlights" class="carousel slide" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        <div class="carousel-item active">
+                            <div class="d-flex flex-column justify-content-center h-100">
+                                <span class="hero-chip mb-3"><i class="bi bi-hospital"></i> Hospital management</span>
+                                <h3 class="fw-bold">Appointments, medical records, and billing in one clinical workspace.</h3>
+                                <p class="text-white-50 mb-0">Patients and care teams can review treatment history, invoice status, and upcoming visits in one place.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <div class="d-flex flex-column justify-content-center h-100">
+                                <span class="hero-chip mb-3"><i class="bi bi-camera-video"></i> Telemedicine</span>
+                                <h3 class="fw-bold">Virtual consultations with clinical notes and secure document exchange.</h3>
+                                <p class="text-white-50 mb-0">Remote consultations stay linked to the patient record with reports and prescriptions in context.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <div class="d-flex flex-column justify-content-center h-100">
+                                <span class="hero-chip mb-3"><i class="bi bi-truck-front"></i> Emergency dispatch</span>
+                                <h3 class="fw-bold">Emergency dispatch with live ambulance tracking.</h3>
+                                <p class="text-white-50 mb-0">Request location, response status, and case updates stay visible while emergency care is in motion.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-4">
+                        <button class="bh-btn bh-btn-outline bh-btn-inline" type="button" data-bs-target="#homeHighlights" data-bs-slide="prev" aria-label="Previous slide"><i class="bi bi-arrow-left"></i></button>
+                        <button class="bh-btn bh-btn-outline bh-btn-inline" type="button" data-bs-target="#homeHighlights" data-bs-slide="next" aria-label="Next slide"><i class="bi bi-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mb-5">
+    <div class="mb-4">
+        <span class="section-kicker">Platform modules</span>
+        <h2 class="display-6 fw-bold mt-3 mb-2">Built for patient care, clinical coordination, pharmacy, laboratory work, and ward operations.</h2>
+        <p class="text-secondary mb-0">Each BayAfya module stays focused on healthcare tasks, service continuity, and real operational use.</p>
+    </div>
+    <div class="row g-4">
+        <div class="col-md-6 col-xl-4 stagger-in"><div class="module-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-hospital fs-4"></i></div><h3 class="h4">Hospital Operations</h3><p class="text-secondary">Patient registration, appointments, medical records, admissions, beds, and billing in one service line.</p></div></div>
+        <div class="col-md-6 col-xl-4 stagger-in"><div class="module-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-camera-video fs-4"></i></div><h3 class="h4">Telemedicine</h3><p class="text-secondary">Virtual consultations, clinical documents, and prescriptions linked back to the patient record.</p></div></div>
+        <div class="col-md-6 col-xl-4 stagger-in"><div class="module-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-clipboard2-pulse fs-4"></i></div><h3 class="h4">Symptom Checker</h3><p class="text-secondary">Symptom intake with clear guidance for outpatient review or urgent escalation.</p></div></div>
+        <div class="col-md-6 col-xl-4 stagger-in"><div class="module-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-capsule-pill fs-4"></i></div><h3 class="h4">Pharmacy</h3><p class="text-secondary">Medicine stock, prescription verification, dispensing, and refill support for patients.</p></div></div>
+        <div class="col-md-6 col-xl-4 stagger-in"><div class="module-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-flower2 fs-4"></i></div><h3 class="h4">Mental Health</h3><p class="text-secondary">Mood logging, therapy scheduling, and wellness resources in a calmer care setting.</p></div></div>
+        <div class="col-md-6 col-xl-4 stagger-in"><div class="module-card h-100 p-4"><div class="feature-icon mb-3"><i class="bi bi-truck-front fs-4"></i></div><h3 class="h4">Ambulance Response</h3><p class="text-secondary">Emergency requests, dispatch assignment, and live tracking for urgent transport.</p></div></div>
+    </div>
+</section>
+
+<section class="mb-5">
+    <div class="row g-4 align-items-stretch">
+        <div class="col-lg-5">
+            <div class="banner-card p-4 p-lg-5 h-100">
+                <span class="hero-chip mb-3"><i class="bi bi-journal-check"></i> Care pathway</span>
+                <h2 class="display-6 fw-bold mb-3">Every patient journey stays visible from first visit to discharge.</h2>
+                <p class="text-white-50 mb-0">Registration, booking, triage, consultation, admission, surgery, and follow-up are organized in one hospital flow.</p>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card p-4 h-100">
+                <span class="section-kicker">Patient journey</span>
+                <h3 class="h3 mt-3 mb-4">How care moves through BayAfya</h3>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="feature-card h-100 p-4">
+                            <div class="feature-icon mb-3"><i class="bi bi-person-plus fs-4"></i></div>
+                            <h4 class="h5 mb-2">Registration and access</h4>
+                            <p class="text-secondary mb-0">Patients and hospital teams join a shared record once a hospital authorizes the profile.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="feature-card h-100 p-4">
+                            <div class="feature-icon mb-3"><i class="bi bi-calendar2-check fs-4"></i></div>
+                            <h4 class="h5 mb-2">Appointment and triage</h4>
+                            <p class="text-secondary mb-0">Bookings respect hospital access, doctor schedules, and the current facility context.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="feature-card h-100 p-4">
+                            <div class="feature-icon mb-3"><i class="bi bi-hospital fs-4"></i></div>
+                            <h4 class="h5 mb-2">Admission and ward care</h4>
+                            <p class="text-secondary mb-0">Beds, transfers, observations, and discharge summaries remain tied to the correct hospital.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="feature-card h-100 p-4">
+                            <div class="feature-icon mb-3"><i class="bi bi-scissors fs-4"></i></div>
+                            <h4 class="h5 mb-2">Operations and recovery</h4>
+                            <p class="text-secondary mb-0">Surgical cases advance through pre-op, theatre, recovery, and completion workflows.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mb-5">
+    <div class="card p-4 p-lg-5">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <span class="section-kicker">BayAfya Assistant</span>
+                <h2 class="display-6 fw-bold mt-3 mb-3">Context-aware guidance for patients, clinicians, and operational staff.</h2>
+                <p class="text-secondary mb-0">Use the assistant panel for symptom guidance, wellbeing prompts, chart-linked follow-up, and workspace-aware suggestions.</p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <a class="bh-btn bh-btn-surface" href="{% if user.is_authenticated %}#{% else %}{% url 'login' %}{% endif %}">
+                    <i class="bi bi-stars"></i><span>Open assistant</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="banner-card p-4 p-lg-5">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-stars"></i> Connected hospital services</span>
+            <h2 class="display-6 fw-bold mb-3">A consistent experience for care delivery and hospital coordination.</h2>
+            <p class="text-white-50 mb-0">The platform keeps patient care, clinical services, pharmacy, laboratory, admissions, and emergency support in one coordinated system.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <a class="bh-btn bh-btn-surface" href="{% url 'register' %}">Get Started</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

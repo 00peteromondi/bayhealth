@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-clipboard2-pulse-fill"></i> Intelligent triage support</span>
+            <h1 class="display-6 fw-bold mb-2">AI symptom checker</h1>
+            <p class="text-white-50 mb-0">Capture symptoms in plain language and receive a structured assessment with clear next-step guidance.</p>
+        </div>
+    </div>
+</section>
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4 symptom-checker-card">
+            <span class="section-kicker">Assessment input</span>
+            <h2 class="h3 mt-3 mb-3">Describe symptoms</h2>
+            <div class="soft-section p-3 mb-3" id="symptomHospitalContext" {% if not active_hospital %}hidden{% endif %}>
+                    <div class="fw-semibold">Hospital context</div>
+                    <div class="text-secondary small" id="symptomHospitalContextText">
+                        {% if active_hospital %}Assessment guidance is being framed for {{ active_hospital.name }}.{% else %}Assessment guidance is being framed for the current BayAfya workspace.{% endif %}
+                    </div>
+            </div>
+            <form method="post" class="stacked-form" id="symptomCheckForm" data-symptom-checker>
+                {% csrf_token %}
+                <div class="symptom-structured-grid">
+                    <div class="symptom-structured-main" data-field-name="symptoms">
+                        {{ form.symptoms.label_tag }}
+                        {{ form.symptoms }}
+                        {% if form.symptoms.help_text %}<div class="form-text">{{ form.symptoms.help_text }}</div>{% endif %}
+                        {% for error in form.symptoms.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        <div class="bh-field-error d-none" data-field-error="symptoms"></div>
+                    </div>
+                    <div class="symptom-structured-side">
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold mb-3">Clinical timeline</div>
+                            {% for field in form %}
+                                {% if field.name != "symptoms" %}
+                                    <div class="mb-3" data-field-name="{{ field.name }}">
+                                        {{ field.label_tag }}
+                                        {{ field }}
+                                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                        {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                        <div class="bh-field-error d-none" data-field-error="{{ field.name }}"></div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="bh-field-error mb-3 d-none" id="symptomFormError"></div>
+                <div class="symptom-checker-actions">
+                    <button class="bh-btn bh-btn-primary" type="submit" id="symptomCheckSubmit">
+                        <i class="bi bi-search-heart"></i><span>Analyze symptoms</span>
+                    </button>
+                    <div class="small text-secondary">BayAfya Assistant will combine symptom detail, urgency signals, and care guidance.</div>
+                </div>
+            </form>
+            <div class="soft-section p-3 mt-4" id="symptomAssistant">
+                <div class="fw-semibold mb-2">BayAfya guidance</div>
+                <div class="text-secondary small" id="symptomAssistantCopy">Complete the symptom form, then select <strong>Analyze symptoms</strong> for a structured BayAfya review.</div>
+            </div>
+            <div id="symptomResultSection" class="{% if not result %}d-none{% endif %}">
+                <hr>
+                <div class="symptom-result-shell">
+                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                        <h3 class="h4 mb-0">Assessment</h3>
+                        <span id="symptomRiskBadge" class="status-pill {% if result.risk_level == 'high' %}danger{% elif result.risk_level == 'moderate' %}warning{% else %}success{% endif %}">
+                            {% if result %}{{ result.risk_level|title }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="dashboard-grid">
+                        <article class="metric-card metric-card-compact text-start">
+                            <span class="metric-label">Likely condition</span>
+                            <strong class="metric-value-sm" id="symptomDisease">{% if result %}{{ result.disease }}{% endif %}</strong>
+                            <span class="metric-meta" id="symptomSummary">{% if result %}{{ result.summary }}{% endif %}</span>
+                        </article>
+                        <article class="metric-card metric-card-compact text-start">
+                            <span class="metric-label">Confidence</span>
+                            <strong class="metric-value-sm" id="symptomConfidence">{% if result %}{{ result.confidence|floatformat:2 }}{% endif %}</strong>
+                            <span class="metric-meta">AI-supported clinical pattern confidence.</span>
+                        </article>
+                        <article class="metric-card metric-card-compact text-start">
+                            <span class="metric-label">Symptom timeline</span>
+                            <strong class="metric-value-sm" id="symptomTimelineHeadline">Structured clinical context</strong>
+                            <span class="metric-meta" id="symptomTimelineCopy">
+                                {% if result %}
+                                    {% if form.onset_summary.value %}Onset: {{ form.onset_summary.value }}.{% endif %}
+                                    {% if form.progression.value %} Progression: {{ form.progression.value|title }}.{% endif %}
+                                    {% if form.intensity.value %} Intensity: {{ form.intensity.value }}/10.{% endif %}
+                                {% endif %}
+                            </span>
+                        </article>
+                        <article class="metric-card metric-card-compact text-start">
+                            <span class="metric-label">Guidance</span>
+                            <strong class="metric-value-sm" id="symptomGuidanceLabel">Immediate care recommendation</strong>
+                            <span class="metric-meta" id="symptomGuidance">{% if result %}{{ result.guidance }}{% endif %}</span>
+                        </article>
+                    </div>
+                    <div class="symptom-analysis-grid mt-3">
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold mb-2">Clinical rationale</div>
+                            <div class="text-secondary small" id="symptomClinicalRationale">{% if result %}{{ result.clinical_rationale }}{% endif %}</div>
+                        </div>
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold mb-2">Recommended care setting</div>
+                            <div class="chip-row" id="symptomCareSetting">
+                                {% if result and result.care_setting %}
+                                    <span class="info-chip">
+                                        <i class="bi bi-hospital"></i>
+                                        {% if result.care_setting == "home_monitoring" %}
+                                            Home monitoring
+                                        {% elif result.care_setting == "outpatient_review" %}
+                                            Outpatient review
+                                        {% elif result.care_setting == "same_day_clinic" %}
+                                            Same-day clinic
+                                        {% elif result.care_setting == "urgent_in_person" %}
+                                            Urgent in-person review
+                                        {% elif result.care_setting == "emergency_care" %}
+                                            Emergency care
+                                        {% else %}
+                                            Outpatient review
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="soft-section p-3 mt-3 {% if not result or not result.differential_diagnoses %}d-none{% endif %}" id="symptomDifferentialSection">
+                        <div class="fw-semibold mb-2">Differential considerations</div>
+                        <div class="chip-row" id="symptomDifferentials">
+                            {% if result and result.differential_diagnoses %}
+                                {% for item in result.differential_diagnoses %}
+                                    <span class="info-chip"><i class="bi bi-diagram-3"></i>{{ item }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="soft-section p-3 mt-3 {% if not result or not result.red_flags %}d-none{% endif %}" id="symptomRedFlagsSection">
+                        <div class="fw-semibold mb-2">Red flags to watch</div>
+                        <div class="chip-row" id="symptomRedFlags">
+                            {% if result and result.red_flags %}
+                                {% for flag in result.red_flags %}
+                                    <span class="info-chip info-chip-alert"><i class="bi bi-exclamation-diamond"></i>{{ flag }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="soft-section p-3 mt-3 {% if not result or not result.recommended_evaluation %}d-none{% endif %}" id="symptomEvaluationSection">
+                        <div class="fw-semibold mb-2">Recommended evaluation</div>
+                        <div class="chip-row" id="symptomEvaluation">
+                            {% if result and result.recommended_evaluation %}
+                                {% for item in result.recommended_evaluation %}
+                                    <span class="info-chip"><i class="bi bi-clipboard2-check"></i>{{ item }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="soft-section p-3 mt-3 {% if not result or not result.next_steps %}d-none{% endif %}" id="symptomNextStepsSection">
+                        <div class="fw-semibold mb-2">Recommended next steps</div>
+                        <div class="chip-row" id="symptomNextSteps">
+                            {% if result and result.next_steps %}
+                                {% for step in result.next_steps %}
+                                    <span class="info-chip"><i class="bi bi-arrow-right-circle"></i>{{ step }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <span class="section-kicker">History</span>
+            <h3 class="h4 mt-3">Recent checks</h3>
+            <div class="stacked-list" id="symptomHistoryList">
+                {% for item in checks %}
+                    <article class="soft-section p-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                            <div>
+                                <div class="fw-semibold">{{ item.predicted_disease|default:"Structured symptom review" }}</div>
+                                <div class="text-secondary small">{{ item.guidance }}</div>
+                            </div>
+                            <span class="status-pill {% if item.risk_level == 'high' %}danger{% elif item.risk_level == 'moderate' %}warning{% else %}success{% endif %}">{{ item.get_risk_level_display }}</span>
+                        </div>
+                        <div class="text-secondary small mt-2">{{ item.checked_at|date:"Y-m-d H:i" }} · Confidence {{ item.confidence|floatformat:2 }}</div>
+                    </article>
+                {% empty %}
+                    <div class="soft-section p-3 text-secondary">No symptom reviews recorded yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

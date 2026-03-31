@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-folder2-open"></i> Records workspace</span>
+            <h1 class="display-6 fw-bold mb-2">Unified hospital records</h1>
+            <p class="text-white-50 mb-0">Query medical records, lab activity, admissions, surgeries, and appointments from one consolidated records workspace.</p>
+        </div>
+        <div class="col-lg-4">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Current patient filter</div>
+                <div class="fs-5 fw-bold">{{ selected_patient|default:"All matching patients" }}</div>
+                <div class="small text-white-50 mt-3">Hospital scope</div>
+                <div class="fw-semibold">{{ current_hospital.name|default:"Cross-hospital view" }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-folder2-open"></i><span>Live records overview</span></span>
+        <span class="metric-overview-meta">5 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-file-medical"></i></span>
+            <span class="metric-overview-label">Medical records</span>
+            <strong class="metric-overview-value">{{ summary.medical }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-beaker"></i></span>
+            <span class="metric-overview-label">Lab entries</span>
+            <strong class="metric-overview-value">{{ summary.lab }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-hospital"></i></span>
+            <span class="metric-overview-label">Admissions</span>
+            <strong class="metric-overview-value">{{ summary.admissions }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-calendar2-week"></i></span>
+            <span class="metric-overview-label">Appointments</span>
+            <strong class="metric-overview-value">{{ summary.appointments }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-scissors"></i></span>
+            <span class="metric-overview-label">Surgeries</span>
+            <strong class="metric-overview-value">{{ summary.surgeries }}</strong>
+        </div>
+    </div>
+</details>
+
+<div class="dashboard-grid mb-4 d-none d-md-grid">
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-file-medical fs-4"></i></div><div class="metric-value">{{ summary.medical }}</div><div class="metric-label">Medical records</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-beaker fs-4"></i></div><div class="metric-value">{{ summary.lab }}</div><div class="metric-label">Lab entries</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-hospital fs-4"></i></div><div class="metric-value">{{ summary.admissions }}</div><div class="metric-label">Admissions</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-calendar2-week fs-4"></i></div><div class="metric-value">{{ summary.appointments }}</div><div class="metric-label">Appointments</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-scissors fs-4"></i></div><div class="metric-value">{{ summary.surgeries }}</div><div class="metric-label">Surgeries</div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-4">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Query records</span><h2 class="h4 mt-3 mb-0">Filters</h2></div>
+                <span class="mini-icon"><i class="bi bi-funnel"></i></span>
+            </div>
+            <form method="get" class="auth-form">
+                <div class="form-field-stack">
+                    <label for="recordsQuery">Search</label>
+                    <input id="recordsQuery" type="text" name="q" value="{{ search }}" class="form-control" placeholder="Search patient, diagnosis, lab, or note...">
+                </div>
+                <div class="form-field-stack">
+                    <label for="recordsPatient">Patient</label>
+                    <select id="recordsPatient" name="patient" class="form-select" data-autocomplete="patient">
+                        <option value="">All patients</option>
+                        {% for item in patients %}
+                        <option value="{{ item.id }}" {% if selected_patient and item.id == selected_patient.id %}selected{% endif %}>{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field-stack">
+                    <label for="recordsType">Record type</label>
+                    <select id="recordsType" name="type" class="form-select">
+                        <option value="all" {% if record_type == "all" %}selected{% endif %}>All records</option>
+                        <option value="medical" {% if record_type == "medical" %}selected{% endif %}>Medical records</option>
+                        <option value="lab" {% if record_type == "lab" %}selected{% endif %}>Laboratory</option>
+                        <option value="admission" {% if record_type == "admission" %}selected{% endif %}>Admissions</option>
+                        <option value="appointment" {% if record_type == "appointment" %}selected{% endif %}>Appointments</option>
+                        <option value="surgery" {% if record_type == "surgery" %}selected{% endif %}>Surgeries</option>
+                    </select>
+                </div>
+                <div class="d-flex flex-wrap gap-2 pt-2">
+                    <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-search"></i><span>Run query</span></button>
+                    <a class="bh-btn bh-btn-outline-light" href="{% url 'hospital:records_hub' %}">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="col-xl-8">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Results</span><h2 class="h4 mt-3 mb-0">Consolidated record results</h2></div>
+                <span class="mini-icon"><i class="bi bi-journal-richtext"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in record_cards %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+                        <div>
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="text-secondary small">{{ item.subtitle }}</div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="status-pill">{{ item.kind }}</span>
+                            <span class="status-pill"><i class="bi bi-building"></i>{{ item.hospital }}</span>
+                        </div>
+                    </div>
+                    <div class="text-secondary small mb-2">{{ item.detail }}</div>
+                    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                        <span class="text-secondary small">{{ item.status }}</span>
+                        {% if item.url %}
+                        <a class="bh-btn bh-btn-inline bh-btn-outline" href="{{ item.url }}">View full record</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-folder2-open fs-2"></i></div>
+                    <div class="fw-semibold">No records matched</div>
+                    <div class="text-secondary small">Adjust the patient, type, or free-text query to widen the search.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+ </div>
+{% endblock %}

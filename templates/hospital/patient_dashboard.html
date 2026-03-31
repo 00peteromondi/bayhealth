@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-dashboard-endpoint="{% url 'hospital:dashboard_live_metrics' %}"></div>
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-person-heart"></i> Patient care view</span>
+            <h1 class="display-6 fw-bold mb-2">Your care portal</h1>
+            <p class="text-white-50 mb-0">Review appointments, care plans, results, billing, caregiver access, and follow-up guidance from one patient-centered workspace.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end d-flex flex-wrap justify-content-lg-end gap-2">
+            <a class="bh-btn bh-btn-surface" href="{% url 'hospital:appointment_center' %}"><i class="bi bi-calendar2-week"></i><span>My schedule</span></a>
+            <a class="bh-btn bh-btn-surface" href="{% url 'hospital:book_appointment' %}"><i class="bi bi-calendar-plus"></i><span>Book appointment</span></a>
+            <a class="bh-btn bh-btn-outline" href="{% url 'telemedicine:dashboard' %}"><i class="bi bi-camera-video"></i><span>Telemedicine</span></a>
+        </div>
+    </div>
+</section>
+
+{% if assistant_watch_items %}
+<div class="card bayafya-watch p-4 mb-4" data-watch-dismiss-url="{% url 'hospital:dismiss_watch_signal' %}">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span><h2 class="h4 mt-3 mb-0">Care updates you may want to review now</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-pill" data-bayafya-watch-count><i class="bi bi-bell"></i>{{ assistant_watch_items|length }} signals</span>
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-refresh aria-label="Refresh BayAfya watch">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline">Refresh</span>
+            </button>
+            {% if assistant_watch_items|length > 1 %}
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-toggle aria-expanded="false">Show more</button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="bayafya-watch-list" data-scroll-cards data-bayafya-watch-list>
+        {% for item in assistant_watch_items %}
+        <div class="bayafya-watch-item bayafya-watch-tone-{{ item.tone|default:'primary' }}" data-bayafya-watch-item data-watch-id="{{ item.id }}"{% if forloop.first %} data-watch-active="true"{% endif %}>
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                <div class="fw-semibold">{{ item.title }}</div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="status-pill {% if item.tone == 'danger' %}danger{% elif item.tone == 'warning' %}warning{% endif %}">{{ item.tone|title }}</span>
+                    <button class="bayafya-watch-dismiss" type="button" data-watch-dismiss="{{ item.id }}" aria-label="Dismiss signal"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+            <div class="text-secondary small">{{ item.detail }}</div>
+            {% if item.meta %}<div class="text-secondary small mt-2">{{ item.meta }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card bayafya-watch p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span><h2 class="h4 mt-3 mb-0">Care updates you may want to review now</h2></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="status-pill"><i class="bi bi-bell"></i>0 signals</span>
+            <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-bayafya-watch-refresh aria-label="Refresh BayAfya watch">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline">Refresh</span>
+            </button>
+        </div>
+    </div>
+    <div class="bayafya-watch-empty empty-state p-4 text-center">
+        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-stars fs-2"></i></div>
+        <div class="fw-semibold">Nothing urgent to review</div>
+        <div class="text-secondary small">BayAfya will place fresh appointment, result, billing, or admission signals here when something new needs your attention.</div>
+    </div>
+</div>
+{% endif %}
+
+<details class="card p-4 mb-4 command-notes-card" open>
+    <summary class="d-flex justify-content-between align-items-center list-unstyled">
+        <div><span class="section-kicker"><i class="bi bi-journal-text"></i>Command notes</span><h2 class="h4 mt-3 mb-0">Helpful notes for your care journey</h2></div>
+        <span class="bh-btn bh-btn-inline bh-btn-outline"><i class="bi bi-x-lg"></i><span>Close</span></span>
+    </summary>
+    <div class="row g-3 mt-1">
+        <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Walk-in progress</div><div class="text-secondary small">When you are in a walk-in flow, BayAfya keeps your latest stage visible so you can track where you are next.</div></div></div>
+        <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Records</div><div class="text-secondary small">Use My records and the consolidated record archive to review everything from visits and labs to admissions and discharge follow-up.</div></div></div>
+        <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Next steps</div><div class="text-secondary small">Lab results, bills, discharge instructions, and appointments appear here as fresh signals instead of forcing you to search across screens.</div></div></div>
+    </div>
+</details>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-heart-pulse"></i><span>Live care summary</span></span>
+        <span class="metric-overview-meta">6 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-building"></i></span><span class="metric-overview-label">Hospitals in view</span><strong class="metric-overview-value" data-live-metric="hospitals">{{ stats.hospitals }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-calendar2-week"></i></span><span class="metric-overview-label">Appointments</span><strong class="metric-overview-value" data-live-metric="appointments">{{ stats.appointments }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-journal-medical"></i></span><span class="metric-overview-label">Medical records</span><strong class="metric-overview-value" data-live-metric="records">{{ stats.records }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-receipt-cutoff"></i></span><span class="metric-overview-label">Billing items</span><strong class="metric-overview-value" data-live-metric="billing_items">{{ stats.billing_items }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-map"></i></span><span class="metric-overview-label">Care plans</span><strong class="metric-overview-value" data-live-metric="care_plans">{{ stats.care_plans }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-beaker"></i></span><span class="metric-overview-label">Lab results</span><strong class="metric-overview-value" data-live-metric="lab_results">{{ stats.lab_results }}</strong></div>
+    </div>
+</details>
+
+<div class="dashboard-grid d-none d-md-grid mb-4">
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-building fs-4"></i></div><div class="metric-value" data-live-metric="hospitals">{{ stats.hospitals }}</div><div class="metric-label">Hospitals in view</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-calendar2-week fs-4"></i></div><div class="metric-value" data-live-metric="appointments">{{ stats.appointments }}</div><div class="metric-label">Appointments</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-journal-medical fs-4"></i></div><div class="metric-value" data-live-metric="records">{{ stats.records }}</div><div class="metric-label">Medical records</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-receipt-cutoff fs-4"></i></div><div class="metric-value" data-live-metric="billing_items">{{ stats.billing_items }}</div><div class="metric-label">Billing items</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-map fs-4"></i></div><div class="metric-value" data-live-metric="care_plans">{{ stats.care_plans }}</div><div class="metric-label">Care plans</div></div>
+    <div class="metric-card"><div class="metric-icon mx-auto mb-3"><i class="bi bi-beaker fs-4"></i></div><div class="metric-value" data-live-metric="lab_results">{{ stats.lab_results }}</div><div class="metric-label">Lab results</div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-6">
+        <div class="dashboard-stack">
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Reminders</span>
+                    <h2 class="h4 mt-3 mb-0">Upcoming care and alerts</h2>
+                    <p class="text-secondary mb-0">Appointments, follow-ups, and financial reminders that need your attention.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-bell"></i><span>{{ patient_reminders|length }} items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in patient_reminders %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="text-secondary small">{{ item.detail }}</div>
+                        </div>
+                        <span class="status-pill {% if item.tone == 'warning' %}warning{% endif %}">{{ item.tone|title }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="fw-semibold">No reminders right now</div>
+                <div class="text-secondary small">Upcoming visits, lab follow-ups, and financial reminders will appear here.</div>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <div class="row g-4 mb-4" data-smart-fill-row>
+            <div class="col-12 col-xxl-6" data-smart-fill-col>
+                <details class="card p-4 h-100 profile-expand-card" open>
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy">
+                            <span class="section-kicker">Care team</span>
+                            <h2 class="h4 mt-3 mb-0">People involved in your care</h2>
+                            <p class="text-secondary mb-0">Your active clinicians and care partners across BayAfya.</p>
+                        </div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-people"></i><span>{{ care_team|length }} people</span><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                    <div class="d-grid gap-3" data-scroll-cards>
+                        {% for item in care_team %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">{{ item.name }}</div>
+                            <div class="text-secondary small">{{ item.role }} · {{ item.hospital }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="text-secondary small">Your active care team will appear here once records or admissions are linked.</div>
+                        {% endfor %}
+                    </div>
+                    </div>
+                </details>
+            </div>
+            <div class="col-12 col-xxl-6" data-smart-fill-col>
+                <details class="card p-4 h-100 profile-expand-card" open>
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy">
+                            <span class="section-kicker">Portal updates</span>
+                            <h2 class="h4 mt-3 mb-0">Recent status changes</h2>
+                            <p class="text-secondary mb-0">Fresh updates from admissions, results, and your care journey.</p>
+                        </div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-activity"></i><span>{{ portal_updates|length }} updates</span><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                    <div class="d-grid gap-3" data-scroll-cards>
+                        {% for item in portal_updates %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="text-secondary small">{{ item.detail }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="text-secondary small">Admission changes, results, and updates will appear here.</div>
+                        {% endfor %}
+                    </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        {% if walk_in_journey %}
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Walk-in journey</span>
+                    <h2 class="h4 mt-3 mb-0">Your current stage in care</h2>
+                    <p class="text-secondary mb-0">See where you are now and what step comes next.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-signpost-2"></i><span>{{ walk_in_journey.current_stage }}</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="soft-section p-3 mb-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <span class="status-pill"><i class="bi bi-activity"></i>{{ walk_in_journey.current_stage }}</span>
+                    <span class="status-pill"><i class="bi bi-person-vcard"></i>{{ walk_in_journey.encounter.ticket_number }}</span>
+                    <span class="status-pill"><i class="bi bi-building"></i>{{ walk_in_journey.encounter.hospital.name|default:"BayAfya" }}</span>
+                </div>
+                <div class="text-secondary small">{{ walk_in_journey.current_state }}</div>
+            </div>
+            <div class="patient-journey-track mb-3" data-scroll-cards>
+                {% for item in walk_in_journey.steps %}
+                <div class="patient-journey-step {% if item.is_active %}is-active{% elif item.is_complete %}is-complete{% endif %}">
+                    <span class="patient-journey-step-icon"><i class="bi {{ item.icon }}"></i></span>
+                    <div class="min-w-0">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <div class="fw-semibold">{{ item.label }}</div>
+                            {% if item.is_active %}
+                                <span class="status-pill">Current</span>
+                            {% elif item.is_complete %}
+                                <span class="status-pill success">Done</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-secondary small">{{ item.detail }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if walk_in_journey.events %}
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in walk_in_journey.events %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.title }}</div>
+                    <div class="text-secondary small">{{ item.detail }}</div>
+                    <div class="text-secondary small mt-2">{{ item.meta }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            </div>
+        </details>
+        {% endif %}
+
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Personalized care</span>
+                    <h2 class="h4 mt-3 mb-0">Treatment plans and milestones</h2>
+                    <p class="text-secondary mb-0">Your care roadmap, review schedule, and linked goals.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-map"></i><span>{{ care_plans|length }} plans</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="row g-3" data-scroll-cards>
+                {% for item in care_plans %}
+                <div class="col-md-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <div class="fw-semibold">{{ item.title }}</div>
+                                <div class="text-secondary small">{% if item.doctor %}{{ item.doctor }}{% endif %}{% if item.timeline %} · {{ item.timeline }}{% endif %}</div>
+                            </div>
+                            <span class="status-pill">{{ item.get_status_display }}</span>
+                        </div>
+                        <div class="text-secondary small mb-2"><strong>Goals:</strong> {{ item.goals }}</div>
+                        {% if item.milestones %}<div class="text-secondary small mb-2"><strong>Milestones:</strong> {{ item.milestones }}</div>{% endif %}
+                        {% if item.next_review_on %}<div class="text-secondary small"><strong>Next review:</strong> {{ item.next_review_on }}</div>{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12"><div class="empty-state p-4 text-center"><div class="fw-semibold">No care plans yet</div><div class="text-secondary small">When your clinician publishes a treatment roadmap, it will appear here.</div></div></div>
+                {% endfor %}
+            </div>
+            </div>
+        </details>
+
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Clinical records</span>
+                    <h2 class="h4 mt-3 mb-0">Medical history and observations</h2>
+                    <p class="text-secondary mb-0">Everything recorded about your care, including vitals and plans.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-journal-medical"></i><span>{{ medical_records|length }} records</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="soft-section p-3 h-100">
+                        <div class="fw-semibold mb-3">Medical records</div>
+                        <div class="d-grid gap-3" data-scroll-cards>
+                            {% for record in medical_records %}
+                            <div class="soft-section p-3">
+                                <div class="fw-semibold">{{ record.created_at|date:"Y-m-d" }}</div>
+                                <div class="text-secondary small mb-2">{{ record.diagnosis }}</div>
+                                {% if record.plan %}<div class="text-secondary small"><strong>Plan:</strong> {{ record.plan|truncatechars:120 }}</div>{% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No medical records available.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="soft-section p-3 h-100">
+                        <div class="fw-semibold mb-3">Vitals</div>
+                        <div class="d-grid gap-3" data-scroll-cards>
+                            {% for item in vitals %}
+                            <div class="soft-section p-3">
+                                <div class="fw-semibold">{{ item.recorded_at|date:"Y-m-d H:i" }}</div>
+                                <div class="text-secondary small">T {{ item.temperature_c|default:"-" }} · P {{ item.pulse_rate|default:"-" }} · BP {{ item.systolic_bp|default:"-" }}/{{ item.diastolic_bp|default:"-" }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No vital-sign observations recorded yet.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </details>
+
+        <div class="row g-4" data-smart-fill-row>
+            <div class="col-12 col-xxl-6" data-smart-fill-col>
+                <details class="card p-4 h-100 profile-expand-card" open>
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy">
+                            <span class="section-kicker">Virtual care</span>
+                            <h2 class="h4 mt-3 mb-0">Telemedicine and follow-up</h2>
+                            <p class="text-secondary mb-0">Consultations you can join or continue from your portal.</p>
+                        </div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-camera-video"></i><span>{{ telemedicine_consultations|length }} consults</span><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                    <div class="d-grid gap-3" data-scroll-cards>
+                        {% for item in telemedicine_consultations %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">{{ item.appointment.doctor }}</div>
+                            <div class="text-secondary small mb-2">{{ item.appointment.hospital.name|default:"BayAfya" }} · {{ item.get_status_display }}</div>
+                            <a class="bh-btn bh-btn-inline bh-btn-outline" href="{% url 'telemedicine:join_room' item.room_id %}">Open consultation</a>
+                        </div>
+                        {% empty %}
+                        <div class="text-secondary small">No telemedicine consultations are linked yet.</div>
+                        {% endfor %}
+                    </div>
+                    </div>
+                </details>
+            </div>
+            <div class="col-12 col-xxl-6" data-smart-fill-col>
+                <details class="card p-4 h-100 profile-expand-card" open>
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy">
+                            <span class="section-kicker">Support content</span>
+                            <h2 class="h4 mt-3 mb-0">Education and wellness</h2>
+                            <p class="text-secondary mb-0">Helpful reading and next-step guidance matched to your care.</p>
+                        </div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-journal-richtext"></i><span>{{ resources|length }} items</span><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                    <div class="d-grid gap-3" data-scroll-cards>
+                        {% for item in resources %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="text-secondary small">{{ item.description|truncatechars:120 }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="text-secondary small">Educational content will appear here as it is published.</div>
+                        {% endfor %}
+                    </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <details class="card p-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Care journey guide</span>
+                    <h2 class="h4 mt-3 mb-0">How BayAfya keeps your care connected</h2>
+                    <p class="text-secondary mb-0">A short map of the information BayAfya is keeping together for you.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-stars"></i><span>Guide</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+            <div class="workspace-brief p-3">
+                <div class="workspace-brief-grid mb-3">
+                    <div class="workspace-brief-item">
+                        <span class="label">Hospitals</span>
+                        <span class="value">{{ stats.hospitals }} facilities currently linked to your care view</span>
+                    </div>
+                    <div class="workspace-brief-item">
+                        <span class="label">Medical records</span>
+                        <span class="value">{{ stats.records }} records available in your connected history</span>
+                    </div>
+                    <div class="workspace-brief-item">
+                        <span class="label">Lab results</span>
+                        <span class="value">{{ stats.lab_results }} results ready for review</span>
+                    </div>
+                </div>
+                <div class="workspace-brief-list">
+                    <div class="workspace-brief-list-item">
+                        <i class="bi bi-folder2-open"></i>
+                        <div>
+                            <div class="fw-semibold">Your records stay consolidated</div>
+                            <div class="text-secondary small">Use the records area to review diagnoses, lab outcomes, admissions, and follow-up changes without switching between modules.</div>
+                        </div>
+                    </div>
+                    <div class="workspace-brief-list-item">
+                        <i class="bi bi-people"></i>
+                        <div>
+                            <div class="fw-semibold">Caregiver and family access stays controlled</div>
+                            <div class="text-secondary small">Only the permissions you choose are shared, while your main care timeline remains centered on your own patient profile.</div>
+                </div>
+            </div>
+            </div>
+        </details>
+        </div>
+    </div>
+</div>
+    </div>
+
+    <div class="col-xl-6">
+        <div class="dashboard-stack">
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Scheduling</span>
+            <h3 class="h4 mt-3">Appointments and visits</h3>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in appointments %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.doctor }}</div>
+                    <div class="text-secondary small">{{ item.appointment_date }} at {{ item.appointment_time }}</div>
+                    <div class="text-secondary small">{{ item.reason|default:"No additional reason captured." }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No appointments recorded.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Billing</span>
+            <h3 class="h4 mt-3">Itemized financial view</h3>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for bill in billings %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div>
+                            <div class="fw-semibold">{{ bill.description|default:bill.get_billing_type_display|default:"Billing item" }}</div>
+                            <div class="text-secondary small">{{ bill.created_at|date:"Y-m-d H:i" }}</div>
+                        </div>
+                        <span class="status-pill {% if bill.paid %}success{% else %}warning{% endif %}">{% if bill.paid %}Paid{% else %}Outstanding{% endif %}</span>
+                    </div>
+                    <div class="text-secondary small">Amount: {{ bill.amount }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No billing records available.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Laboratory</span>
+            <h3 class="h4 mt-3">Tests and results</h3>
+            <div class="d-grid gap-3 mb-4" data-scroll-cards>
+                {% for item in lab_results %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.request.test_name }}</div>
+                    <div class="text-secondary small mb-2">{{ item.completed_at|date:"Y-m-d H:i" }}</div>
+                    <div class="text-secondary small">{{ item.result_summary|truncatechars:130 }}</div>
+                    {% if item.attachment %}<a class="bh-btn bh-btn-inline bh-btn-outline mt-2" href="{{ item.attachment.url }}" target="_blank" rel="noopener">Open attachment</a>{% endif %}
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No lab results are available yet.</div>
+                {% endfor %}
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for request in lab_requests %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ request.test_name }}</div>
+                    <div class="text-secondary small">{{ request.get_status_display }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Continuity of care</span>
+            <h3 class="h4 mt-3">Advance directives</h3>
+            <form method="post" action="{% url 'hospital:create_advance_directive' %}" enctype="multipart/form-data" class="stacked-form mb-4">
+                {% csrf_token %}
+                {% for field in directive_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Save directive</button>
+            </form>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in advance_directives %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.get_directive_type_display }}</div>
+                    <div class="text-secondary small">{{ item.summary|truncatechars:120 }}</div>
+                    {% if item.document %}<a class="bh-btn bh-btn-inline bh-btn-outline mt-2" href="{{ item.document.url }}" target="_blank" rel="noopener">Open document</a>{% endif %}
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No advance directives stored yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Family and caregiver access</span>
+            <h3 class="h4 mt-3">Shared updates with consent</h3>
+            <form method="post" action="{% url 'hospital:create_caregiver_access' %}" class="stacked-form mb-4">
+                {% csrf_token %}
+                {% for field in caregiver_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Save caregiver access</button>
+            </form>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in caregiver_accesses %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.caregiver_name }}</div>
+                    <div class="text-secondary small">{{ item.relationship|default:"Caregiver" }}{% if item.caregiver_email %} · {{ item.caregiver_email }}{% endif %}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No caregiver access permissions have been added yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <span class="section-kicker">Feedback</span>
+            <h3 class="h4 mt-3">Quality and satisfaction</h3>
+            <form method="post" action="{% url 'hospital:submit_patient_feedback' %}" class="stacked-form mb-4">
+                {% csrf_token %}
+                {% for field in feedback_form %}
+                <div class="mb-3">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Submit feedback</button>
+            </form>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in feedback_entries %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.service_area|default:"General care feedback" }}</div>
+                    <div class="text-secondary small mb-2">Rating {{ item.rating }}/5{% if item.staff_member %} · {{ item.staff_member.get_full_name|default:item.staff_member.username }} ({{ item.staff_member.get_role_display }}){% elif item.doctor %} · {{ item.doctor }}{% endif %}</div>
+                    <div class="text-secondary small">{{ item.comments|truncatechars:120 }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">You have not submitted feedback yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+ </div>
+{% endblock %}

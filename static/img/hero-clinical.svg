@@ -1,0 +1,29 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="800" rx="48" fill="url(#bg)"/>
+  <circle cx="992" cy="146" r="120" fill="#A8E0D1" fill-opacity="0.24"/>
+  <circle cx="170" cy="642" r="170" fill="#C2DCF7" fill-opacity="0.25"/>
+  <rect x="735" y="132" width="286" height="402" rx="30" fill="white" fill-opacity="0.18" stroke="white" stroke-opacity="0.3"/>
+  <rect x="778" y="183" width="200" height="22" rx="11" fill="#D8F3EB"/>
+  <rect x="778" y="227" width="153" height="14" rx="7" fill="white" fill-opacity="0.65"/>
+  <rect x="778" y="263" width="163" height="92" rx="18" fill="white" fill-opacity="0.14" stroke="white" stroke-opacity="0.28"/>
+  <rect x="808" y="293" width="102" height="32" rx="16" fill="#8FD3C1"/>
+  <rect x="778" y="384" width="200" height="14" rx="7" fill="white" fill-opacity="0.65"/>
+  <rect x="778" y="418" width="169" height="14" rx="7" fill="white" fill-opacity="0.38"/>
+  <rect x="778" y="452" width="124" height="14" rx="7" fill="white" fill-opacity="0.38"/>
+  <path d="M239 242C239 211.072 264.072 186 295 186H616C646.928 186 672 211.072 672 242V469C672 499.928 646.928 525 616 525H295C264.072 525 239 499.928 239 469V242Z" fill="white" fill-opacity="0.13" stroke="white" stroke-opacity="0.3"/>
+  <rect x="288" y="239" width="286" height="234" rx="24" fill="#EDF9F5"/>
+  <path d="M389 272C389 257.088 401.088 245 416 245H446C460.912 245 473 257.088 473 272V302C473 316.912 460.912 329 446 329H416C401.088 329 389 316.912 389 302V272Z" fill="#2F7E79"/>
+  <path d="M431 256V318" stroke="white" stroke-width="14" stroke-linecap="round"/>
+  <path d="M400 287H462" stroke="white" stroke-width="14" stroke-linecap="round"/>
+  <rect x="330" y="361" width="203" height="16" rx="8" fill="#B8DCCF"/>
+  <rect x="330" y="397" width="160" height="16" rx="8" fill="#CBE7DE"/>
+  <rect x="330" y="433" width="124" height="16" rx="8" fill="#D6EFE8"/>
+  <path d="M150 160C183.333 126.667 256.8 77.2 284 112C318 155.5 210 191 206 250C202.8 297.2 271.333 323.333 306 331" stroke="white" stroke-opacity="0.3" stroke-width="10" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="bg" x1="89" y1="84" x2="1028" y2="722" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#113248"/>
+      <stop offset="0.52" stop-color="#1F5F6D"/>
+      <stop offset="1" stop-color="#2F7E79"/>
+    </linearGradient>
+  </defs>
+</svg>

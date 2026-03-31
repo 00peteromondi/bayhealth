@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-person-badge"></i> Personal profile</span>
+            <h1 class="display-6 fw-bold mb-2 d-flex align-items-center gap-3 flex-wrap">
+                {% if avatar_data.url %}
+                    <span class="profile-avatar-lg"><img src="{{ avatar_data.url }}" alt="{{ avatar_data.alt }}" class="avatar-image"></span>
+                {% else %}
+                    <span class="profile-avatar-lg"><i class="bi bi-person-circle"></i></span>
+                {% endif %}
+                <span class="profile-hero-name">{{ user.get_full_name|default:user.username }}</span>
+            </h1>
+            <p class="text-white-50 mb-0">Review your account details, care role, and direct access points across BayAfya services.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <a class="bh-btn bh-btn-surface" href="{% url 'notifications' %}"><i class="bi bi-bell"></i><span>Notifications</span></a>
+        </div>
+    </div>
+</section>
+
+{% if email_verification_pending %}
+<div class="soft-section p-4 mb-4 border-0">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <div class="section-kicker mb-2">Email verification</div>
+            <h2 class="h5 mb-1">Verify your email to keep BayAfya secure</h2>
+            <p class="text-secondary mb-0">We sent a 7-digit verification code to {{ verification_email }}. You’ll need to confirm it before signing in again or changing security-sensitive details.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="bh-btn bh-btn-primary" href="{% url 'resend_email_verification' %}?email={{ verification_email|urlencode }}"><i class="bi bi-envelope-paper-heart"></i><span>Resend email</span></a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if profile_form.errors or password_form.errors or redeem_form.errors %}
+<div hidden>
+    {% for error in profile_form.non_field_errors %}
+        <div data-message-toast="{{ error }}" data-message-title="Profile update" data-message-tone="danger"></div>
+    {% endfor %}
+    {% for field in profile_form %}
+        {% for error in field.errors %}
+            <div data-message-toast="{{ error }}" data-message-title="Profile update" data-message-tone="danger"></div>
+        {% endfor %}
+    {% endfor %}
+    {% for error in password_form.non_field_errors %}
+        <div data-message-toast="{{ error }}" data-message-title="Password update" data-message-tone="danger"></div>
+    {% endfor %}
+    {% for field in password_form %}
+        {% for error in field.errors %}
+            <div data-message-toast="{{ error }}" data-message-title="Password update" data-message-tone="danger"></div>
+        {% endfor %}
+    {% endfor %}
+    {% for error in redeem_form.non_field_errors %}
+        <div data-message-toast="{{ error }}" data-message-title="Hospital access" data-message-tone="danger"></div>
+    {% endfor %}
+    {% for field in redeem_form %}
+        {% for error in field.errors %}
+            <div data-message-toast="{{ error }}" data-message-title="Hospital access" data-message-tone="danger"></div>
+        {% endfor %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<details class="metric-overview-card profile-metric-overview d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-person-badge"></i><span>Profile overview</span></span>
+        <span class="metric-overview-meta">{{ profile_cards|length }} items <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        {% for item in profile_cards %}
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi {{ item.icon }}"></i></span>
+            <span class="metric-overview-label">{{ item.label }}</span>
+            <strong class="metric-overview-value">{{ item.value }}</strong>
+        </div>
+        {% endfor %}
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    {% for item in profile_cards %}
+    <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+            <div class="metric-icon mb-3"><i class="bi {{ item.icon }} fs-4"></i></div>
+            <div class="text-uppercase small text-secondary">{{ item.label }}</div>
+            <div class="h5 fw-bold mb-0 mt-2">{{ item.value }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="profile-accordion-grid">
+    <details class="card p-4 profile-expand-card profile-span-wide profile-span-hero" open>
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Access</span>
+                <h2 class="h3 mt-3 mb-0">Your direct links</h2>
+                <p class="text-secondary mb-0">Open the parts of BayAfya that match what you do right now.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-link-45deg"></i><span>{{ care_links|length }} links</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <div class="row g-3">
+                {% for item in care_links %}
+                <div class="col-md-6">
+                    <a class="module-link" href="{% url item.url %}">
+                        <div class="feature-card h-100 p-4">
+                            <div class="feature-icon mb-3"><i class="bi {{ item.icon }} fs-4"></i></div>
+                            <h3 class="h5 mb-2">{{ item.label }}</h3>
+                            <p class="text-secondary mb-0">Open this service from your personal profile.</p>
+                        </div>
+                    </a>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="empty-state p-4 text-center">
+                        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-link-45deg fs-2"></i></div>
+                        <div class="fw-semibold">No profile links available</div>
+                        <div class="text-secondary small">Service access will appear here based on your role.</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </details>
+
+    <details class="card p-4 profile-expand-card profile-span-medium">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Profile</span>
+                <h2 class="h4 mt-3 mb-0">Update details</h2>
+                <p class="text-secondary mb-0">Keep your personal details and contact points current.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-pencil-square"></i><span>Editable profile</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+            <div class="profile-expand-body pt-4">
+            <form method="post" enctype="multipart/form-data" class="auth-form">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in profile_form %}
+                        <div class="col-12 {% if field.name != 'address' and field.name != 'profile_picture' %}col-md-6{% endif %}">
+                            <div class="form-field-stack">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="col-12 pt-2">
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-check2-circle"></i><span>Save profile</span></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </details>
+
+    <details class="card p-4 profile-expand-card profile-span-narrow">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Account</span>
+                <h2 class="h4 mt-3 mb-0">Contact details</h2>
+                <p class="text-secondary mb-0">See the contact identifiers tied to your account.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-shield-check"></i><span>Identity</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <div class="list-group list-group-flush list-soft">
+                <div class="list-group-item d-flex justify-content-between px-0 profile-detail-row"><span class="profile-detail-label">Username</span><strong class="profile-detail-value">{{ user.username }}</strong></div>
+                <div class="list-group-item d-flex justify-content-between px-0 profile-detail-row"><span class="profile-detail-label">Email</span><strong class="profile-detail-value">{{ user.email|default:"Not provided" }}</strong></div>
+                <div class="list-group-item d-flex justify-content-between px-0 profile-detail-row"><span class="profile-detail-label">Phone</span><strong class="profile-detail-value">{{ user.phone|default:"Not provided" }}</strong></div>
+                <div class="list-group-item d-flex justify-content-between px-0 profile-detail-row"><span class="profile-detail-label">Address</span><strong class="profile-detail-value">{{ user.address|default:"Not provided" }}</strong></div>
+            </div>
+        </div>
+    </details>
+
+    <details class="card p-4 profile-expand-card profile-span-medium profile-span-tall">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Security</span>
+                <h2 class="h4 mt-3 mb-0">Change password</h2>
+                <p class="text-secondary mb-0">Update your password and sign in again with the new one.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-shield-lock"></i><span>Secure update</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <form method="post" action="{% url 'change_password' %}" class="auth-form" data-password-change-form>
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in password_form %}
+                        <div class="col-12 {% if field.name != 'old_password' %}col-md-6{% endif %}">
+                            <div class="form-field-stack">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                {% if field.name == 'new_password1' %}
+                                <div class="bh-field-help" data-password-meter-label>Password strength: waiting</div>
+                                <div class="password-strength-track"><span class="password-strength-fill" data-password-meter></span></div>
+                                {% endif %}
+                                {% if field.name == 'new_password2' %}
+                                <div class="bh-field-help" data-password-match-label>Confirm password to continue.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="col-12">
+                        <div class="text-secondary small mb-3">After updating your password, BayAfya will sign you out so you can log back in with the new credentials.</div>
+                        <button class="bh-btn bh-btn-primary" type="submit" data-auth-submit><i class="bi bi-arrow-repeat"></i><span>Update password</span></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </details>
+
+    <details class="card p-4 profile-expand-card profile-span-medium">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Facilities</span>
+                <h2 class="h4 mt-3 mb-0">Your hospital access</h2>
+                <p class="text-secondary mb-0">Move between facilities you can actually use.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-building-heart"></i><span>{{ hospital_accesses|length }} facilities</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3">
+                {% for access in hospital_accesses %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ access.hospital.name }}</div>
+                            <div class="text-secondary small profile-access-role">{{ access.get_role_display }}</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            {% if current_hospital and current_hospital.id == access.hospital.id %}
+                                <span class="status-pill"><i class="bi bi-check2-circle"></i>Active</span>
+                            {% endif %}
+                            <form method="post" action="{% url 'switch_hospital' %}" class="m-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="hospital_id" value="{{ access.hospital.id }}">
+                                <button class="bh-btn bh-btn-outline-light bh-btn-inline" type="submit">Open</button>
+                            </form>
+                            {% if access.role != 'patient' %}
+                            <form method="post" action="{% url 'update_hospital_access_status' %}" class="m-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="access_id" value="{{ access.id }}">
+                                <input type="hidden" name="action" value="leave">
+                                <input type="hidden" name="reason" value="Left from profile">
+                                <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Leave</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-building-add fs-2"></i></div>
+                    <div class="fw-semibold">No hospital access yet</div>
+                    <div class="text-secondary small">Use an authorization code issued by a hospital administrator to join a facility.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </details>
+
+    <details class="card p-4 profile-expand-card profile-span-narrow">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Access</span>
+                <h2 class="h4 mt-3 mb-0">Redeem authorization code</h2>
+                <p class="text-secondary mb-0">Join a hospital that has issued you a code.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-key"></i><span>Join facility</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <form method="post" action="{% url 'redeem_hospital_access' %}" class="auth-form">
+                {% csrf_token %}
+                <div class="form-field-stack mb-3">
+                    {{ redeem_form.invitation_code.label_tag }}
+                    {{ redeem_form.invitation_code }}
+                    {% for error in redeem_form.invitation_code.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-unlock"></i><span>Redeem code</span></button>
+            </form>
+        </div>
+    </details>
+
+    {% if certifications %}
+    <details class="card p-4 profile-expand-card profile-span-medium">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Credentials</span>
+                <h2 class="h4 mt-3 mb-0">Certifications</h2>
+                <p class="text-secondary mb-0">Your current credentials and expiration dates.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-patch-check"></i><span>{{ certifications|length }} items</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3">
+                {% for cert in certifications %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ cert.title }}</div>
+                    <div class="text-secondary small">Expires {{ cert.expires_on }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </details>
+    {% endif %}
+
+    {% if recent_items %}
+    <details class="card p-4 profile-expand-card profile-span-wide profile-span-tall">
+        <summary class="profile-expand-summary">
+            <div class="profile-expand-summary-copy">
+                <span class="section-kicker">Recent activity</span>
+                <h2 class="h4 mt-3 mb-0">Latest records</h2>
+                <p class="text-secondary mb-0">A quick look at what changed most recently.</p>
+            </div>
+            <span class="profile-expand-summary-meta"><i class="bi bi-clock-history"></i><span>{{ recent_items|length }} items</span><i class="bi bi-chevron-down"></i></span>
+        </summary>
+        <div class="profile-expand-body pt-4">
+            <div class="d-grid gap-3">
+                {% for item in recent_items %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.title }}</div>
+                    <div class="text-secondary small">{{ item.subtitle }}</div>
+                    <div class="mt-2"><span class="status-pill"><i class="bi bi-activity"></i>{{ item.status }}</span></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </details>
+    {% endif %}
+</div>
+{% endblock %}

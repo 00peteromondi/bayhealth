@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+        <div><span class="section-kicker">Live emergency status</span><h1 class="h2 mt-3 mb-0">Track ambulance request #{{ request_obj.id }}</h1></div>
+        <span class="status-pill danger"><i class="bi bi-radioactive"></i><span id="statusLabel">{{ request_obj.get_status_display }}</span></span>
+    </div>
+    <div class="row g-4 mb-4">
+        <div class="col-md-4"><div class="metric-card"><div class="text-secondary small">Assigned ambulance</div><div class="fw-bold">{{ request_obj.assigned_ambulance|default:"Pending dispatch" }}</div></div></div>
+        <div class="col-md-4"><div class="metric-card"><div class="text-secondary small">Latitude</div><div class="fw-bold">{{ request_obj.latitude }}</div></div></div>
+        <div class="col-md-4"><div class="metric-card"><div class="text-secondary small">Longitude</div><div class="fw-bold">{{ request_obj.longitude }}</div></div></div>
+    </div>
+    <div id="locationFeed" class="map-feed rounded-4 p-3 mb-3"></div>
+    <div class="soft-section p-3">
+        <div class="fw-semibold mb-2">Current location details</div>
+        <div class="text-secondary small">The ambulance team and the care desk can monitor movement and status in real time.</div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j7kP4kFQ7w2b1p1i7u4KQ7JQqQ8YF5J8n3zF0vQ=" crossorigin=""></script>
+<script>
+    const map = L.map("locationFeed").setView([{{ request_obj.latitude }}, {{ request_obj.longitude }}], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+    const marker = L.marker([{{ request_obj.latitude }}, {{ request_obj.longitude }}]).addTo(map);
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const ambulanceSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/ambulance/{{ request_obj.id }}/`);
+    ambulanceSocket.onmessage = function(event) {
+        const payload = JSON.parse(event.data);
+        if (payload.status) {
+            document.getElementById("statusLabel").innerText = payload.status;
+        }
+        if (payload.latitude && payload.longitude) {
+            const point = [payload.latitude, payload.longitude];
+            marker.setLatLng(point);
+            map.setView(point, Math.max(map.getZoom(), 15));
+        }
+        document.getElementById("locationFeed").innerHTML += `<div>Latitude: ${payload.latitude ?? "-"}, Longitude: ${payload.longitude ?? "-"}</div>`;
+    };
+</script>
+{% endblock %}
