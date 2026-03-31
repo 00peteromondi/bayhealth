@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-chat-dots"></i> BayAfya communications</span>
+            <h1 class="display-6 fw-bold mb-2">Coordinate care without leaving the platform</h1>
+            <p class="text-white-50 mb-0">Start direct conversations, create focused teams, share join codes, and bring BayAfya Assistant into care coordination when the discussion needs clinical or operational context.</p>
+        </div>
+        <div class="col-lg-4">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Current workspace</div>
+                <div class="fs-4 fw-bold">{{ current_hospital.name|default:"Cross-hospital" }}</div>
+                <div class="small text-white-50 mt-3">Conversation rule</div>
+                <div class="fw-semibold">Mention <code>@bayafya</code> to invite the assistant in</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="communications-root" data-communications-root>
+<div class="row g-4 communications-grid">
+    <div class="col-xl-4">
+        <div class="card p-4 h-100 communications-inbox-shell">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Inbox</span><h2 class="h4 mt-3 mb-0">Conversations</h2></div>
+                <span class="mini-icon"><i class="bi bi-chat-square-text"></i></span>
+            </div>
+            <div class="communications-sidebar" data-scroll-cards>
+                {% for item in staff_conversations %}
+                <a class="communications-thread {% if active_conversation and active_conversation.id == item.id %}is-active{% endif %}" href="{% url 'communications' %}?conversation={{ item.id }}" data-communications-thread-link data-conversation-id="{{ item.id }}">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div class="min-w-0">
+                            <div class="communications-thread-title text-truncate" data-thread-title>{{ item.title }}</div>
+                            <div class="communications-thread-subtitle text-truncate" data-thread-subtitle>{{ item.subtitle }}</div>
+                        </div>
+                        <span class="status-pill danger {% if not item.unread_count %}d-none{% endif %}" data-thread-unread>{{ item.unread_count }}</span>
+                    </div>
+                    <div class="text-secondary small mb-2" data-thread-preview>{{ item.last_message_preview }}</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="status-pill"><i class="bi {% if item.kind == 'team' %}bi-people{% else %}bi-person{% endif %}"></i>{{ item.purpose }}</span>
+                        {% if item.assistant_enabled %}<span class="status-pill"><i class="bi bi-stars"></i>BayAfya on</span>{% endif %}
+                    </div>
+                </a>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-chat-dots fs-2"></i></div>
+                    <div class="fw-semibold">No conversations yet</div>
+                    <div class="text-secondary small">Start a direct chat or create a team to begin coordinating care.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-8">
+        <div class="card p-4 h-100 communications-shell" data-communications-page data-current-user-id="{{ user.id }}" {% if active_conversation %}data-conversation-id="{{ active_conversation.id }}" data-messages-endpoint="{% url 'communication_messages' active_conversation.id %}" data-send-endpoint="{% url 'send_communication_message' active_conversation.id %}"{% else %}data-conversation-id=""{% endif %}>
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <span class="section-kicker"><i class="bi bi-people"></i> Care coordination</span>
+                    <h2 class="h4 mt-3 mb-1">Conversation workspace</h2>
+                    <div class="text-secondary small">Use the action buttons below to open a form only when you need it.</div>
+                </div>
+                <span class="mini-icon"><i class="bi bi-stars"></i></span>
+            </div>
+
+            <div class="communications-action-bar mb-3">
+                {% if direct_conversation_form %}
+                <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-communications-tool-trigger="direct">
+                    <i class="bi bi-person-plus"></i><span>{% if user.role == "patient" %}Message care team{% else %}New direct chat{% endif %}</span>
+                </button>
+                {% endif %}
+                {% if can_create_team %}
+                <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-communications-tool-trigger="team">
+                    <i class="bi bi-diagram-3"></i><span>Create team</span>
+                </button>
+                {% endif %}
+                {% if can_join_team %}
+                <button class="bh-btn bh-btn-inline bh-btn-outline" type="button" data-communications-tool-trigger="join">
+                    <i class="bi bi-key"></i><span>Join team</span>
+                </button>
+                {% endif %}
+                <button class="bh-btn bh-btn-inline bh-btn-surface d-none" type="button" data-communications-tool-close>
+                    <i class="bi bi-x-lg"></i><span>Close panel</span>
+                </button>
+            </div>
+
+            <div class="communications-tool-drawer d-none mb-4" data-communications-tool-drawer>
+                {% if direct_conversation_form %}
+                <section class="card p-4 mb-3 communications-tool-card d-none" data-communications-tool-panel="direct">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div><span class="section-kicker">Direct</span><h3 class="h5 mt-3 mb-0">{% if user.role == "patient" %}Message your care team{% else %}Start a staff conversation{% endif %}</h3></div>
+                        <span class="mini-icon"><i class="bi bi-person-plus"></i></span>
+                    </div>
+                    <form method="post" action="{% url 'create_direct_conversation' %}" class="stacked-form" data-communications-async-form data-communications-action="direct">
+                        {% csrf_token %}
+                        {% for field in direct_conversation_form %}
+                        <div class="mb-3">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endfor %}
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="bh-btn bh-btn-primary bh-btn-sm" type="submit" data-auth-submit><i class="bi bi-send"></i><span>Open direct chat</span></button>
+                            <button class="bh-btn bh-btn-outline" type="button" data-communications-tool-close><i class="bi bi-x-lg"></i><span>Cancel</span></button>
+                        </div>
+                    </form>
+                </section>
+                {% endif %}
+
+                {% if can_create_team %}
+                <section class="card p-4 mb-3 communications-tool-card d-none" data-communications-tool-panel="team">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div><span class="section-kicker">Teams</span><h3 class="h5 mt-3 mb-0">Create a focused collaboration team</h3></div>
+                        <span class="mini-icon"><i class="bi bi-people"></i></span>
+                    </div>
+                    <form method="post" action="{% url 'create_team_conversation' %}" class="stacked-form" data-communications-async-form data-communications-action="team">
+                        {% csrf_token %}
+                        {% for field in team_conversation_form %}
+                        <div class="mb-3">
+                            {% if field.name == "assistant_enabled" %}
+                            <div class="form-check">
+                                {{ field }}
+                                {{ field.label_tag }}
+                            </div>
+                            {% else %}
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% endif %}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endfor %}
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="bh-btn bh-btn-primary bh-btn-sm" type="submit" data-auth-submit><i class="bi bi-diagram-3"></i><span>Create team</span></button>
+                            <button class="bh-btn bh-btn-outline" type="button" data-communications-tool-close><i class="bi bi-x-lg"></i><span>Cancel</span></button>
+                        </div>
+                    </form>
+                    <div class="soft-section p-3 mt-4">
+                        <div class="fw-semibold mb-2">Suggested team purposes</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for value, label in team_purpose_choices %}
+                            <span class="status-pill"><i class="bi bi-stars"></i>{{ label }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+                {% endif %}
+
+                {% if can_join_team %}
+                <section class="card p-4 communications-tool-card d-none" data-communications-tool-panel="join">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div><span class="section-kicker">Join</span><h3 class="h5 mt-3 mb-0">Enter a team access code</h3></div>
+                        <span class="mini-icon"><i class="bi bi-key"></i></span>
+                    </div>
+                    <form method="post" action="{% url 'join_team_conversation' %}" class="stacked-form" data-communications-async-form data-communications-action="join">
+                        {% csrf_token %}
+                        {% for field in join_conversation_form %}
+                        <div class="mb-3">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endfor %}
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="bh-btn bh-btn-outline bh-btn-sm" type="submit" data-auth-submit><i class="bi bi-box-arrow-in-right"></i><span>Join team</span></button>
+                            <button class="bh-btn bh-btn-outline" type="button" data-communications-tool-close><i class="bi bi-x-lg"></i><span>Cancel</span></button>
+                        </div>
+                    </form>
+                </section>
+                {% endif %}
+            </div>
+
+            <div class="communications-chat-shell">
+                {% if active_conversation %}
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <span class="section-kicker">{% if active_conversation.kind == "team" %}<i class="bi bi-people"></i>Team{% else %}<i class="bi bi-person"></i>Direct{% endif %}</span>
+                        <h2 class="h4 mt-3 mb-1">{{ active_conversation.title|default:active_conversation.get_purpose_display }}</h2>
+                        <div class="text-secondary small">{{ active_conversation.get_purpose_display }}{% if active_conversation.hospital %} · {{ active_conversation.hospital.name }}{% endif %}{% if active_conversation.linked_patient %} · Patient: {{ active_conversation.linked_patient }}{% endif %}</div>
+                    </div>
+                    {% if active_conversation.kind == "team" %}
+                    <div class="text-end">
+                        <div class="status-pill mb-2"><i class="bi bi-key"></i>{{ active_conversation.join_code }}</div>
+                        {% if can_manage_active_conversation %}
+                        <form method="post" action="{% url 'delete_team_conversation' active_conversation.id %}" data-communications-async-form data-communications-action="archive">
+                            {% csrf_token %}
+                            <button class="bh-btn bh-btn-inline bh-btn-outline bh-btn-sm" type="submit" data-auth-submit><i class="bi bi-archive"></i><span>Archive team</span></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="communications-meta mb-3">
+                    {% for participant in active_conversation_participants %}
+                    <span class="status-pill">
+                        <i class="bi bi-person-badge"></i>
+                        {{ participant.user.get_full_name|default:participant.user.username }}
+                        {% if participant.role == "admin" %} · admin{% endif %}
+                    </span>
+                    {% endfor %}
+                    {% if active_conversation.assistant_enabled %}
+                    <span class="status-pill"><i class="bi bi-stars"></i>BayAfya Assistant available</span>
+                    {% endif %}
+                </div>
+
+                <div class="communications-chat-stage">
+                <div class="communications-conversation-status d-none" data-communications-loading-state>
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <span>Loading conversation...</span>
+                </div>
+                <div class="communications-chat card-subtle p-3" id="staffConversationMessages" data-conversation-messages>
+                    {% for item in active_conversation_messages %}
+                    <div class="communications-bubble {% if item.kind == 'assistant' %}is-assistant{% elif item.sender_id == user.id %}is-user{% else %}is-other{% endif %}" data-communication-message-id="{{ item.id }}">
+                        <div class="communications-bubble-role">{{ item.sender }}</div>
+                        <div class="communications-bubble-body">{{ item.body|linebreaksbr }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state p-4 text-center">
+                        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-chat-left-text fs-2"></i></div>
+                        <div class="fw-semibold">No messages yet</div>
+                        <div class="text-secondary small">Use the composer below to begin this conversation.</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="communications-live-typing d-none" data-communications-typing-indicator>
+                    <div class="communications-typing"><span></span><span></span><span></span></div>
+                    <span data-communications-typing-copy>Someone is typing…</span>
+                </div>
+                </div>
+
+                <form class="communications-composer mt-3" data-communication-form>
+                    <label class="form-label small text-secondary mb-2">Message</label>
+                    <div class="communications-composer-row">
+                        <textarea class="form-control communications-composer-input" rows="1" placeholder="Type an update, handover, or @bayafya prompt..." data-communication-input></textarea>
+                        <button class="bh-btn bh-btn-primary bh-btn-sm communications-send-button" type="submit" data-auth-submit><i class="bi bi-send-fill"></i><span>Send</span></button>
+                    </div>
+                    <div class="form-text">Mention <strong>@bayafya</strong> when you want the assistant to join the thread and reason over the current conversation.</div>
+                </form>
+                {% else %}
+                <div class="empty-state p-5 text-center h-100 d-flex flex-column justify-content-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-chat-heart fs-2"></i></div>
+                    <div class="fw-semibold">No conversation selected</div>
+                    <div class="text-secondary small">Choose a conversation from the inbox or open a message form to start coordinating with your team or care staff.</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

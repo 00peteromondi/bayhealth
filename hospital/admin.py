@@ -1,0 +1,64 @@
+from django.contrib import admin
+
+from .models import (
+    Admission,
+    Appointment,
+    AuditEvent,
+    Bed,
+    BedTransfer,
+    Billing,
+    Hospital,
+    HospitalAccess,
+    HospitalInvitation,
+    Certification,
+    DischargeSummary,
+    Doctor,
+    ConditionCatalog,
+    LabTestRequest,
+    LabTestResult,
+    MedicalRecord,
+    OperatingRoom,
+    Patient,
+    PatientCondition,
+    PatientVisit,
+    PharmacyTask,
+    QueueTicket,
+    ShiftAssignment,
+    SurgicalCase,
+    StaffProfile,
+    VitalSign,
+    WalkInEncounter,
+    WalkInEvent,
+    Ward,
+)
+
+
+admin.site.register(Patient)
+admin.site.register(Doctor)
+admin.site.register(Hospital)
+admin.site.register(HospitalAccess)
+admin.site.register(HospitalInvitation)
+admin.site.register(StaffProfile)
+admin.site.register(Ward)
+admin.site.register(Bed)
+admin.site.register(Admission)
+admin.site.register(BedTransfer)
+admin.site.register(DischargeSummary)
+admin.site.register(QueueTicket)
+admin.site.register(ShiftAssignment)
+admin.site.register(Certification)
+admin.site.register(VitalSign)
+admin.site.register(LabTestRequest)
+admin.site.register(LabTestResult)
+admin.site.register(AuditEvent)
+admin.site.register(PatientVisit)
+admin.site.register(WalkInEncounter)
+admin.site.register(WalkInEvent)
+admin.site.register(PharmacyTask)
+admin.site.register(Appointment)
+admin.site.register(MedicalRecord)
+admin.site.register(ConditionCatalog)
+admin.site.register(PatientCondition)
+admin.site.register(OperatingRoom)
+admin.site.register(SurgicalCase)
+admin.site.register(Billing)

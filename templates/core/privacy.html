@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="surface-card legal-page-shell p-4 p-lg-5">
+    <span class="section-kicker">Privacy</span>
+    <h1 class="h2 fw-bold mt-2">BayAfya privacy notice</h1>
+    <p class="text-secondary mb-4">BayAfya is designed to keep access proportionate to role, hospital membership, patient approval, and active care context.</p>
+    <div class="legal-accordion">
+        <details class="legal-accordion-item" open>
+            <summary><span class="legal-step">1</span><span>Minimum necessary access</span></summary>
+            <div class="legal-accordion-body">Users should only view the amount of patient information necessary for their active task. Role-aware controls, hospital scope, and patient-specific approvals are used to reduce unnecessary exposure.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">2</span><span>Active encounter and approval paths</span></summary>
+            <div class="legal-accordion-body">Doctors may review fuller patient context during active encounters, including walk-ins and telemedicine sessions. Outside that context, patient detail access requires an approved grant or hospital-authorized path.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">3</span><span>Cross-hospital patient continuity</span></summary>
+            <div class="legal-accordion-body">BayAfya supports one patient identity across facilities to improve continuity of care. Even so, hospital-level access remains controlled and patient detail visibility is not automatically universal.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">4</span><span>Assistant and AI boundaries</span></summary>
+            <div class="legal-accordion-body">BayAfya Assistant uses only the platform context the current user is allowed to access. It should support workflow clarity and structured review, but must not be treated as a substitute for clinical governance or protected-record controls.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">5</span><span>Auditability and monitoring</span></summary>
+            <div class="legal-accordion-body">Operational and clinical actions may be logged to support care continuity, quality review, and security monitoring. Hospitals may review these logs for compliance, patient safety, or incident response.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">6</span><span>Attachments and result records</span></summary>
+            <div class="legal-accordion-body">Lab attachments, scans, PDFs, and other supporting records should be uploaded only where clinically relevant and only viewed by staff with a legitimate role in the patient journey.</div>
+        </details>
+    </div>
+</section>
+{% endblock %}

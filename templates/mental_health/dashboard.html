@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-flower2"></i> Calm, structured support</span>
+            <h1 class="display-6 fw-bold mb-2">Mental health dashboard</h1>
+            <p class="text-white-50 mb-0">Mood tracking, wellbeing resources, and therapy scheduling presented with a softer tone and reassuring structure.</p>
+        </div>
+    </div>
+</section>
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card p-4">
+            <span class="section-kicker">Wellbeing journal</span>
+            <h2 class="h4 mt-3">Log mood</h2>
+            <form method="post" action="{% url 'mental_health:log_mood' %}" class="stacked-form">
+                {% csrf_token %}
+                {% for field in mood_form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-heart-pulse"></i><span>Save mood</span></button>
+            </form>
+            <div class="soft-section p-3 mt-4" id="moodAssistant">
+                <div class="fw-semibold mb-2">BayAfya wellbeing guidance</div>
+                <div class="text-secondary small">Suggestions will appear as you write about your mood or notes.</div>
+            </div>
+            {% if mood_support %}
+                <div class="soft-section p-3 mt-3">
+                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+                        <div class="fw-semibold">Latest BayAfya care guidance</div>
+                        <span class="status-pill {% if mood_support.risk_level == 'high' %}danger{% elif mood_support.risk_level == 'moderate' %}warning{% else %}success{% endif %}">
+                            {{ mood_support.risk_level|title }}
+                        </span>
+                    </div>
+                    <p class="mb-2">{{ mood_support.summary }}</p>
+                    <p class="text-secondary small mb-3">{{ mood_support.guidance }}</p>
+                    {% if mood_support.coping_steps %}
+                        <div class="chip-row">
+                            {% for step in mood_support.coping_steps %}
+                                <span class="info-chip"><i class="bi bi-heart-pulse"></i>{{ step }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if mood_support.signals %}
+                        <div class="chip-row mt-2">
+                            {% for signal in mood_support.signals %}
+                                <span class="info-chip info-chip-alert"><i class="bi bi-exclamation-circle"></i>{{ signal }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        {% if session_form %}
+        <div class="card p-4 mt-4">
+            <span class="section-kicker">Therapy coordination</span>
+            <h3 class="h4 mt-3">Schedule session</h3>
+            <form method="post" action="{% url 'mental_health:schedule_session' %}" class="stacked-form">
+                {% csrf_token %}
+                {% for field in session_form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-calendar-plus"></i><span>Schedule</span></button>
+            </form>
+            <div class="soft-section p-3 mt-4" id="sessionAssistant">
+                <div class="fw-semibold mb-2">BayAfya scheduling guidance</div>
+                <div class="text-secondary small">Suggestions will appear when you enter details for the therapy session.</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-4">
+            <span class="section-kicker">Recent entries</span>
+            <h2 class="h4 mt-3">Mood logs</h2>
+            <div class="stacked-list">
+                {% for log in mood_logs %}
+                    <article class="soft-section p-3">
+                        <div class="fw-semibold">{{ log.mood }}</div>
+                        {% if log.notes %}<div class="text-secondary small mt-1">{{ log.notes }}</div>{% endif %}
+                        <div class="text-secondary small mt-2">{{ log.logged_at|date:"Y-m-d H:i" }}</div>
+                    </article>
+                {% empty %}
+                    <div class="soft-section p-3 text-secondary">No mood logs available.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Care sessions</span>
+            <h2 class="h4 mt-3">Therapy sessions</h2>
+            <div class="stacked-list">
+                {% for session in sessions %}
+                    <article class="soft-section p-3">
+                        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                            <div class="fw-semibold">{{ session.scheduled_time }}</div>
+                            <span class="status-pill">{{ session.get_status_display }}</span>
+                        </div>
+                        {% if session.notes %}<div class="text-secondary small mt-2">{{ session.notes }}</div>{% endif %}
+                    </article>
+                {% empty %}
+                    <div class="soft-section p-3 text-secondary">No sessions scheduled.</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card p-4">
+            <span class="section-kicker">Resource library</span>
+            <h2 class="h4 mt-3">Wellness resources</h2>
+            <div class="stacked-list">
+                {% for resource in resources %}
+                    <article class="soft-section p-3">
+                        <div class="fw-semibold">{{ resource.title }}</div>
+                        <div class="text-secondary small mt-2">{{ resource.description }}</div>
+                    </article>
+                {% empty %}
+                    <div class="soft-section p-3 text-secondary">No resources published.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

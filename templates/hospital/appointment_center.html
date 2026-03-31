@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-calendar2-week"></i> Appointment center</span>
+            <h1 class="display-6 fw-bold mb-2">
+                {% if appointment_center_role == "doctor" %}Your clinical appointment command{% else %}Your appointment journey{% endif %}
+            </h1>
+            <p class="text-white-50 mb-0">
+                {% if appointment_center_role == "doctor" %}
+                Review your clinic calendar, upcoming patient visits, and follow-through across the selected time window.
+                {% else %}
+                Track your own upcoming, completed, past, and cancelled appointments from one organized schedule workspace.
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-lg-4">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">{% if appointment_center_role == "doctor" %}Doctor{% else %}Patient{% endif %}</div>
+                <div class="fs-4 fw-bold">{{ appointment_owner_label }}</div>
+                <div class="small text-white-50 mt-3">Window</div>
+                <div class="fs-4 fw-bold">{{ appointment_window_label }}</div>
+                <div class="small text-white-50 mt-3">Appointments in view</div>
+                <div class="fw-semibold">{{ summary.total }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-3 col-sm-6"><div class="metric-card h-100"><div class="metric-icon mb-3"><i class="bi bi-calendar-check fs-4"></i></div><div class="text-secondary small text-uppercase">Upcoming</div><div class="display-6 fw-bold">{{ summary.upcoming }}</div></div></div>
+    <div class="col-lg-3 col-sm-6"><div class="metric-card h-100"><div class="metric-icon mb-3"><i class="bi bi-check2-circle fs-4"></i></div><div class="text-secondary small text-uppercase">Completed</div><div class="display-6 fw-bold">{{ summary.completed }}</div></div></div>
+    <div class="col-lg-3 col-sm-6"><div class="metric-card h-100"><div class="metric-icon mb-3"><i class="bi bi-clock-history fs-4"></i></div><div class="text-secondary small text-uppercase">Past</div><div class="display-6 fw-bold">{{ summary.past }}</div></div></div>
+    <div class="col-lg-3 col-sm-6"><div class="metric-card h-100"><div class="metric-icon mb-3"><i class="bi bi-x-circle fs-4"></i></div><div class="text-secondary small text-uppercase">Cancelled</div><div class="display-6 fw-bold">{{ summary.cancelled }}</div></div></div>
+</div>
+
+<details class="card p-4 mb-4 profile-expand-card" open>
+    <summary class="profile-expand-summary">
+        <div class="profile-expand-summary-copy">
+            <span class="section-kicker">Schedule filter</span>
+            <h2 class="h4 mt-3 mb-0">Select the query period</h2>
+            <p class="text-secondary mb-0">Switch between day, week, month, or a custom date range without leaving the schedule view.</p>
+        </div>
+        <span class="profile-expand-summary-meta"><i class="bi bi-funnel"></i><span>{{ appointment_window_label }}</span><i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="profile-expand-body pt-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="appointmentWindow">Window</label>
+                <select class="form-select" id="appointmentWindow" name="appointment_window">
+                    <option value="day" {% if appointment_window == "day" %}selected{% endif %}>Day</option>
+                    <option value="week" {% if appointment_window == "week" %}selected{% endif %}>Week</option>
+                    <option value="month" {% if appointment_window == "month" %}selected{% endif %}>Month</option>
+                    <option value="custom" {% if appointment_window == "custom" %}selected{% endif %}>Custom</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="appointmentWindowStart">Start</label>
+                <input class="form-control" id="appointmentWindowStart" type="date" name="appointment_window_start" value="{{ appointment_window_start|date:'Y-m-d' }}">
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="appointmentWindowEnd">End</label>
+                <input class="form-control" id="appointmentWindowEnd" type="date" name="appointment_window_end" value="{{ appointment_window_end|date:'Y-m-d' }}">
+            </div>
+            <div class="col-12 col-md-2">
+                <button class="bh-btn bh-btn-outline w-100" type="submit"><i class="bi bi-search"></i><span>Apply</span></button>
+            </div>
+        </form>
+    </div>
+</details>
+
+<div class="row g-4">
+    <div class="col-xl-6">
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Upcoming</span>
+                    <h2 class="h4 mt-3 mb-0">Appointments needing attention</h2>
+                    <p class="text-secondary mb-0">Pending and confirmed visits inside the selected window.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-calendar-event"></i><span>{{ summary.upcoming }} items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+                <div class="d-grid gap-3" data-scroll-cards>
+                    {% for item in upcoming_appointments %}
+                    <div class="soft-section p-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                            <div>
+                                <div class="fw-semibold">{% if appointment_center_role == "doctor" %}{{ item.patient }}{% else %}{{ item.doctor }}{% endif %}</div>
+                                <div class="text-secondary small">{{ item.appointment_date }} · {{ item.appointment_time }}{% if item.hospital %} · {{ item.hospital.name }}{% endif %}</div>
+                            </div>
+                            <span class="status-pill">{{ item.get_status_display }}</span>
+                        </div>
+                        {% if appointment_center_role == "doctor" %}
+                        <div class="text-secondary small mb-2">Patient-facing visit scheduled in your calendar.</div>
+                        {% else %}
+                        <div class="text-secondary small mb-2">Assigned clinician and visit slot from your care journey.</div>
+                        {% endif %}
+                        <div class="text-secondary small">{{ item.reason|default:"No appointment reason captured." }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state p-4 text-center">
+                        <div class="fw-semibold">No upcoming appointments in this window</div>
+                        <div class="text-secondary small">Adjust the range or wait for new bookings to appear here.</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+
+        <details class="card p-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Completed</span>
+                    <h2 class="h4 mt-3 mb-0">Recently completed visits</h2>
+                    <p class="text-secondary mb-0">Appointments that were handled successfully in the selected range.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-check2-circle"></i><span>{{ summary.completed }} items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+                <div class="d-grid gap-3" data-scroll-cards>
+                    {% for item in completed_appointments %}
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold">{% if appointment_center_role == "doctor" %}{{ item.patient }}{% else %}{{ item.doctor }}{% endif %}</div>
+                        <div class="text-secondary small">{{ item.appointment_date }} · {{ item.appointment_time }} · {{ item.get_status_display }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="text-secondary small">No completed appointments in this period.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <div class="col-xl-6">
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Past</span>
+                    <h2 class="h4 mt-3 mb-0">Missed or elapsed visits</h2>
+                    <p class="text-secondary mb-0">Appointments that passed without being completed.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-clock-history"></i><span>{{ summary.past }} items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+                <div class="d-grid gap-3" data-scroll-cards>
+                    {% for item in past_appointments %}
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold">{% if appointment_center_role == "doctor" %}{{ item.patient }}{% else %}{{ item.doctor }}{% endif %}</div>
+                        <div class="text-secondary small">{{ item.appointment_date }} · {{ item.appointment_time }} · {{ item.get_status_display }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="text-secondary small">No past appointments in this period.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+
+        <details class="card p-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Cancelled</span>
+                    <h2 class="h4 mt-3 mb-0">Cancelled visits</h2>
+                    <p class="text-secondary mb-0">Appointments that were intentionally withdrawn or cancelled.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-x-circle"></i><span>{{ summary.cancelled }} items</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+                <div class="d-grid gap-3" data-scroll-cards>
+                    {% for item in cancelled_appointments %}
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold">{% if appointment_center_role == "doctor" %}{{ item.patient }}{% else %}{{ item.doctor }}{% endif %}</div>
+                        <div class="text-secondary small">{{ item.appointment_date }} · {{ item.appointment_time }} · {{ item.get_status_display }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="text-secondary small">No cancelled appointments in this period.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+    </div>
+</div>
+</div>
+{% endblock %}

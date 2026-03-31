@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="surface-card legal-page-shell p-4 p-lg-5">
+    <span class="section-kicker">Support</span>
+    <h1 class="h2 fw-bold mt-2">BayAfya help and support</h1>
+    <p class="text-secondary mb-4">Use the guidance below to find the right path for account help, role access, patient workflows, and hospital operations support.</p>
+    <div class="legal-accordion">
+        <details class="legal-accordion-item" open>
+            <summary><span class="legal-step">1</span><span>Account and sign-in issues</span></summary>
+            <div class="legal-accordion-body">If you cannot sign in, confirm you are using the right BayAfya role profile. Staff access depends on a hospital-issued authorization code. Patients may self-register or use an approved hospital invitation path.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">2</span><span>Hospital access or role mismatch</span></summary>
+            <div class="legal-accordion-body">If your role or hospital workspace looks wrong, contact your hospital owner or admin. They can review hospital access, invitation history, and role assignment without creating duplicate user identities.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">3</span><span>Walk-in, triage, and admission support</span></summary>
+            <div class="legal-accordion-body">Reception should capture walk-ins, nurses should complete triage, doctors should document consultation and downstream orders, and admissions teams should continue bed placement using the linked patient context.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">4</span><span>Laboratory and pharmacy workflow support</span></summary>
+            <div class="legal-accordion-body">Lab technicians should work from clinician-requested investigations and return structured results for review. Pharmacists should work from active dispensing tasks or approved prescription-linked instructions.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">5</span><span>Patient records, privacy, and approvals</span></summary>
+            <div class="legal-accordion-body">If a patient-specific record cannot be opened, the user may be outside their allowed access scope. Use active encounters, patient approval, or hospital-admin approval paths instead of bypassing privacy controls.</div>
+        </details>
+        <details class="legal-accordion-item">
+            <summary><span class="legal-step">6</span><span>Assistant and AI support</span></summary>
+            <div class="legal-accordion-body">BayAfya Assistant can help with symptoms, mental wellbeing, workflow guidance, and permitted chart context. If AI output appears off, rely on clinical review and continue with the documented care path.</div>
+        </details>
+    </div>
+</section>
+{% endblock %}

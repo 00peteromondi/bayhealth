@@ -1,0 +1,55 @@
+from django.urls import path
+
+from . import views
+
+
+app_name = "hospital"
+
+urlpatterns = [
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/live/", views.dashboard_live_metrics, name="dashboard_live_metrics"),
+    path("watch/dismiss/", views.dismiss_watch_signal, name="dismiss_watch_signal"),
+    path("patients/", views.patient_registry, name="patient_registry"),
+    path("patients/<int:patient_id>/", views.patient_detail, name="patient_detail"),
+    path("records/", views.records_hub, name="records_hub"),
+    path("records/<int:record_id>/", views.medical_record_detail, name="medical_record_detail"),
+    path("insights/", views.clinical_insights, name="clinical_insights"),
+    path("admissions/", views.admission_dashboard, name="admission_dashboard"),
+    path("walk-ins/", views.walk_in_hub, name="walk_in_hub"),
+    path("walk-ins/intake/", views.intake_walk_in, name="intake_walk_in"),
+    path("walk-ins/<int:encounter_id>/triage/", views.triage_walk_in, name="triage_walk_in"),
+    path("walk-ins/<int:encounter_id>/context/", views.set_walk_in_context, name="set_walk_in_context"),
+    path("walk-ins/<int:encounter_id>/consult/", views.consult_walk_in, name="consult_walk_in"),
+    path("walk-ins/labs/<int:request_id>/result/", views.record_lab_result, name="record_lab_result"),
+    path("walk-ins/pharmacy/<int:task_id>/status/", views.update_pharmacy_task, name="update_pharmacy_task"),
+    path("surgery/", views.surgery_dashboard, name="surgery_dashboard"),
+    path("surgery/<int:case_id>/status/<str:status>/", views.update_surgery_status, name="update_surgery_status"),
+    path("context/<int:appointment_id>/", views.set_clinical_context, name="set_clinical_context"),
+    path("appointments/book/", views.book_appointment, name="book_appointment"),
+    path("appointments/manage/", views.appointment_center, name="appointment_center"),
+    path(
+        "appointments/<int:appointment_id>/status/<str:status>/",
+        views.update_appointment_status,
+        name="update_appointment_status",
+    ),
+    path("records/create/", views.create_medical_record, name="create_medical_record"),
+    path("patient/caregivers/create/", views.create_caregiver_access, name="create_caregiver_access"),
+    path("patient/directives/create/", views.create_advance_directive, name="create_advance_directive"),
+    path("patient/feedback/create/", views.submit_patient_feedback, name="submit_patient_feedback"),
+    path("doctor/tasks/create/", views.create_doctor_task, name="create_doctor_task"),
+    path("doctor/tasks/<int:task_id>/status/<str:status>/", views.update_doctor_task_status, name="update_doctor_task_status"),
+    path("doctor/care-plans/create/", views.create_care_plan, name="create_care_plan"),
+    path("doctor/referrals/create/", views.create_internal_referral, name="create_internal_referral"),
+    path("doctor/referrals/<int:referral_id>/status/<str:status>/", views.update_internal_referral_status, name="update_internal_referral_status"),
+    path("operations/handovers/create/", views.create_shift_handover, name="create_shift_handover"),
+    path("operations/shifts/create/", views.create_shift_assignment, name="create_shift_assignment"),
+    path("operations/shifts/eligible-staff/", views.eligible_shift_staff, name="eligible_shift_staff"),
+    path("operations/supplies/create/", views.create_supply_request, name="create_supply_request"),
+    path("operations/supplies/<int:supply_id>/status/", views.update_supply_request_status, name="update_supply_request_status"),
+    path("operations/lab-qc/create/", views.create_lab_qc_log, name="create_lab_qc_log"),
+    path("operations/incidents/create/", views.create_emergency_incident, name="create_emergency_incident"),
+    path("operations/incidents/<int:incident_id>/status/<str:status>/", views.update_emergency_incident_status, name="update_emergency_incident_status"),
+    path("conditions/create/", views.record_patient_condition, name="record_patient_condition"),
+    path("patients/<int:patient_id>/deceased/", views.mark_patient_deceased, name="mark_patient_deceased"),
+    path("invitations/create/", views.create_invitation, name="create_invitation"),
+]

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page-shell">
+<div class="card auth-card overflow-hidden">
+    <div class="row g-0">
+        <div class="col-lg-6 auth-visual auth-carousel-shell p-3 p-lg-4 d-flex flex-column">
+            <div id="loginExperienceCarousel" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="5200" data-bs-touch="true">
+                <div class="carousel-inner h-100">
+                    <div class="carousel-item active h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-shield-lock"></i> Secure access</span>
+                            <h1 class="auth-carousel-title fw-bold mb-2">Sign in to continue care delivery and hospital operations.</h1>
+                            <p class="text-white-50 mb-3 auth-carousel-copy">BayAfya keeps clinical, patient, and hospital workflows in one secure platform.</p>
+                            <div class="auth-carousel-metric-grid">
+                                <div class="auth-carousel-metric">
+                                    <i class="bi bi-hospital"></i>
+                                    <div>
+                                        <div class="fw-semibold">Hospital-aware access</div>
+                                        <div class="small text-white-50">Enter the exact facility workspace you are approved to use.</div>
+                                    </div>
+                                </div>
+                                <div class="auth-carousel-metric">
+                                    <i class="bi bi-stars"></i>
+                                    <div>
+                                        <div class="fw-semibold">Guided workflows</div>
+                                        <div class="small text-white-50">Clinical tasks, records, pharmacy, and emergency coordination stay connected.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-person-heart"></i> For patients</span>
+                            <h2 class="auth-carousel-title fw-bold mb-2">Return to appointments, records, pharmacy, and emergency support from one place.</h2>
+                            <div class="auth-carousel-list">
+                                <div class="auth-carousel-list-item"><i class="bi bi-calendar2-heart"></i><span>Follow upcoming consultations, telemedicine sessions, and hospital visits.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-file-medical"></i><span>Review your care history, conditions, and ongoing treatment plan across approved hospitals.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-capsule"></i><span>Continue with pharmacy orders, wellness support, and care guidance without switching systems.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-briefcase-medical"></i> For staff</span>
+                            <h2 class="auth-carousel-title fw-bold mb-2">Pick up the exact clinical or operational workflow for your role.</h2>
+                            <div class="auth-carousel-list">
+                                <div class="auth-carousel-list-item"><i class="bi bi-stethoscope"></i><span>Doctors move from schedule to consultation, documentation, conditions, admissions, and surgery planning.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-clipboard2-pulse"></i><span>Nurses, reception, pharmacy, laboratory, counseling, and emergency teams stay aligned on the same patient record.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-arrow-repeat"></i><span>Cross-hospital access remains controlled while keeping one shared user identity per person.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-bar-chart-line"></i> For hospital leadership</span>
+                            <h2 class="auth-carousel-title fw-bold mb-2">Re-enter the command center for staffing, patient flow, and hospital visibility.</h2>
+                            <div class="auth-carousel-list">
+                                <div class="auth-carousel-list-item"><i class="bi bi-people"></i><span>Manage invitations, staff access, patient activity, and hospital participation from one administration view.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-activity"></i><span>Track admissions, theatre scheduling, conditions, and service demand by age group and hospital context.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-shield-check"></i><span>Keep approvals and access changes consistent with secure hospital ownership controls.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="auth-carousel-indicators d-none" aria-hidden="true">
+                    <button type="button" data-bs-target="#loginExperienceCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Login information 1"></button>
+                    <button type="button" data-bs-target="#loginExperienceCarousel" data-bs-slide-to="1" aria-label="Login information 2"></button>
+                    <button type="button" data-bs-target="#loginExperienceCarousel" data-bs-slide-to="2" aria-label="Login information 3"></button>
+                    <button type="button" data-bs-target="#loginExperienceCarousel" data-bs-slide-to="3" aria-label="Login information 4"></button>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 p-2 pt-0 p-lg-3 pt-lg-0 d-flex flex-column justify-content-center auth-form-panel">
+            <div class="auth-form-header">
+                <span class="section-kicker auth-top-badge">Authentication</span>
+                <div class="auth-brand-row">
+                    <span class="navbar-brand-badge auth-form-logo"><i class="bi bi-heart-pulse-fill"></i></span>
+                    <div>
+                        <div class="auth-form-title">Welcome back</div>
+                        <div class="small text-secondary">Sign in to continue with your secure BayAfya workspace.</div>
+                    </div>
+                </div>
+            </div>
+            {% if request.GET.password_changed %}
+                <div class="alert alert-success border-0 mb-3 py-2 px-3">
+                    <div class="fw-semibold">Password updated</div>
+                    <div class="small">Your password has been changed. Please sign in again with the new credentials.</div>
+                </div>
+            {% endif %}
+            {% if form.errors %}
+                <div hidden>
+                    {% for error in form.non_field_errors %}
+                        <div data-message-toast="{{ error }}" data-message-title="Login error" data-message-tone="danger"></div>
+                    {% endfor %}
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <div data-message-toast="{{ error }}" data-message-title="Login error" data-message-tone="danger"></div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <form method="post" class="auth-form auth-stack auth-login-form">
+                {% csrf_token %}
+                <div class="form-field-stack">
+                    {{ form.username.label_tag }}
+                    {{ form.username }}
+                    {% for error in form.username.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="form-field-stack">
+                    {{ form.password.label_tag }}
+                    {{ form.password }}
+                    {% for error in form.password.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="auth-inline-actions">
+                    <button class="bh-btn bh-btn-primary" type="submit" data-auth-submit><i class="bi bi-box-arrow-in-right"></i><span>Login</span></button>
+                    <a class="bh-btn bh-btn-outline-light" href="{% url 'register' %}" data-auth-link><i class="bi bi-person-plus"></i><span>Create account</span></a>
+                    <a class="bh-btn bh-btn-surface" href="{% url 'password_reset' %}" data-auth-link><i class="bi bi-envelope-paper"></i><span>Forgot password</span></a>
+                    <a class="bh-btn bh-btn-surface" href="{% url 'resend_email_verification' %}" data-auth-link><i class="bi bi-send-check"></i><span>Resend verification</span></a>
+                    <a class="bh-btn bh-btn-surface" href="{% url 'home' %}" data-auth-link><i class="bi bi-house-door"></i><span>Return home</span></a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="auth-page-footer mt-3">
+    <span class="auth-page-footer-copy">© {% now "Y" %} BayAfya</span>
+    <span>·</span>
+    <a href="{% url 'terms' %}">Terms</a>
+    <span>·</span>
+    <a href="{% url 'privacy' %}">Privacy</a>
+    <span>·</span>
+    <a href="{% url 'support' %}">Help &amp; Support</a>
+</div>
+</div>
+{% endblock %}

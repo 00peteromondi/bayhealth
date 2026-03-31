@@ -1,0 +1,467 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>{{ platform_name }}</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop stop-color='%231f5f6d'/%3E%3Cstop offset='1' stop-color='%238fd3c1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M32 49.5s-17-9.9-17-22.4C15 19.4 20.8 15 26.3 15c3.2 0 5.4 1.5 5.7 1.7.3-.2 2.5-1.7 5.7-1.7 5.5 0 11.3 4.4 11.3 12.1 0 12.5-17 22.4-17 22.4z' fill='white'/%3E%3Cpath d='M19 31.5h7l2.2-5.2 3.8 10.4 3-6.2H45' fill='none' stroke='%231f5f6d' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="manifest" href="{% url 'manifest' %}">
+    <meta name="theme-color" content="#153147">
+    <link href="{% static 'css/app.css' %}?v=20260330-16" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="site-shell {% if not show_shell_chrome %}auth-shell{% endif %}{% if user.is_authenticated %} user-authenticated{% endif %}" {% if user.is_authenticated and current_hospital %}data-hospital-live-id="{{ current_hospital.id }}"{% endif %}>
+{% if show_shell_chrome %}
+<div id="pwaInstallBanner" class="pwa-banner d-none">
+    <div class="container-fluid px-3 px-lg-4 py-2">
+        <div class="pwa-banner-inner">
+            <div class="d-flex align-items-start gap-3">
+                <span class="pwa-banner-icon"><i class="bi bi-phone"></i></span>
+                <div>
+                    <div class="fw-bold">Install {{ platform_name }} for faster access.</div>
+                    <div class="small text-secondary">Add the app to your device home screen for quicker access to care services.</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="bh-btn bh-btn-primary bh-btn-sm" type="button" data-pwa-install-trigger><i class="bi bi-download"></i><span>Install</span></button>
+                <button class="bh-btn bh-btn-outline-light bh-btn-sm" type="button" data-pwa-dismiss>Not now</button>
+            </div>
+        </div>
+    </div>
+</div>
+<nav class="navbar navbar-expand-xl navbar-dark topbar sticky-top">
+    <div class="container-fluid px-3 px-lg-4 py-2">
+        <div class="d-flex align-items-center gap-2">
+            {% if user.is_authenticated %}
+            <button class="bh-btn bh-btn-icon bh-btn-ghost d-xl-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#siteNav" aria-controls="siteNav" aria-label="Open navigation">
+                <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+            {% endif %}
+            <a class="navbar-brand d-flex align-items-center gap-3 fw-bold me-0" href="{% url 'home' %}">
+                <span class="navbar-brand-badge"><i class="bi bi-heart-pulse-fill"></i></span>
+                <span>
+                    {{ platform_name }}
+                    <small class="d-block text-white-50 fw-normal">Connected Care Platform</small>
+                </span>
+            </a>
+        </div>
+
+        {% if user.is_authenticated %}
+        <div class="d-none d-xl-flex align-items-center justify-content-between flex-grow-1 ms-3 gap-2 min-w-0">
+            <ul class="navbar-nav flex-row flex-nowrap align-items-center gap-1 top-nav-links min-w-0">
+                {% for item in desktop_nav_primary %}
+                    <li class="nav-item flex-shrink-1">
+                        <a class="nav-link top-nav-link {% if item.active %}active{% endif %}" href="{{ item.url }}">
+                            <i class="bi {{ item.icon }}"></i>
+                            <span>{{ item.label }}</span>
+                        </a>
+                    </li>
+                {% endfor %}
+                {% for section in desktop_nav_sections %}
+                <li class="nav-item dropdown flex-shrink-1">
+                    <button class="top-nav-link top-nav-dropdown {% if section.active %}active{% endif %}" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi {{ section.icon }}"></i>
+                        <span>{{ section.label }}</span>
+                        <i class="bi bi-chevron-down small"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end top-nav-menu">
+                        {% for item in section.links %}
+                        <li>
+                            <a class="dropdown-item top-nav-menu-item {% if item.active %}active{% endif %}" href="{{ item.url }}">
+                                <i class="bi {{ item.icon }}"></i>
+                                <span>{{ item.label }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                {% if hospital_accesses %}
+                <div class="dropdown d-none d-lg-block">
+                    <button class="bh-btn bh-btn-outline bh-btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Switch hospital" title="{% if current_hospital %}{{ current_hospital.name }}{% else %}Hospitals{% endif %}">
+                        <i class="bi bi-hospital"></i><span class="d-none d-xl-inline">{% if current_hospital %}{{ current_hospital_label|default:current_hospital.name|slice:":6" }}{% else %}Hospitals{% endif %}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end top-nav-menu">
+                        {% for access in hospital_accesses %}
+                        <li>
+                            <form method="post" action="{% url 'switch_hospital' %}" class="m-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="hospital_id" value="{{ access.hospital.id }}">
+                                <button type="submit" class="dropdown-item top-nav-menu-item {% if current_hospital and current_hospital.id == access.hospital.id %}active{% endif %}">
+                                    <i class="bi bi-building"></i>
+                                    <span>{{ access.hospital.name }}</span>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <a class="bh-btn bh-btn-outline bh-btn-sm bh-btn-icon" href="{% url 'profile' %}" aria-label="Profile">
+                    {% if avatar_data.url %}
+                        <span class="bh-avatar bh-avatar-sm">
+                            <img src="{{ avatar_data.url }}" alt="{{ avatar_data.alt }}" class="avatar-image">
+                        </span>
+                    {% else %}
+                        <i class="bi bi-person-circle"></i>
+                    {% endif %}
+                </a>
+                <a class="bh-btn bh-btn-outline bh-btn-sm bh-btn-icon" href="{% url 'notifications' %}" aria-label="Notifications">
+                    <i class="bi bi-bell"></i>
+                </a>
+                <form method="post" action="{% url 'logout' %}" class="d-inline-flex" data-logout-form>
+                    {% csrf_token %}
+                    <button class="bh-btn bh-btn-surface bh-btn-sm" type="submit">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="d-flex align-items-center gap-2">
+            <a class="bh-btn bh-btn-outline bh-btn-sm" href="{% url 'login' %}">Login</a>
+            <a class="bh-btn bh-btn-surface bh-btn-sm" href="{% url 'register' %}">Register</a>
+        </div>
+        {% endif %}
+    </div>
+</nav>
+
+{% if user.is_authenticated %}
+<div class="offcanvas offcanvas-start app-sidenav text-bg-dark" tabindex="-1" id="siteNav" aria-labelledby="siteNavLabel">
+    <div class="offcanvas-header px-4 pt-4 border-0">
+        <div>
+            <h5 class="offcanvas-title mb-1" id="siteNavLabel">{{ platform_name }}</h5>
+            <div class="text-white-50 small">{{ user.get_role_display }}</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body px-4 pt-2 d-flex flex-column">
+        <div class="sidenav-profile mb-4">
+            <div class="sidenav-avatar bh-avatar bh-avatar-md">
+                {% if avatar_data.url %}
+                    <img src="{{ avatar_data.url }}" alt="{{ avatar_data.alt }}" class="avatar-image">
+                {% else %}
+                    <i class="bi bi-person-circle"></i>
+                {% endif %}
+            </div>
+            <div>
+                <div class="fw-semibold">{{ user.get_full_name|default:user.username }}</div>
+                <div class="text-white-50 small">{% if current_hospital %}{{ current_hospital.name }}{% else %}Signed in securely{% endif %}</div>
+            </div>
+        </div>
+        <div class="sidenav-section-label">Workspace</div>
+        <div class="d-grid gap-2 mb-4">
+            {% for item in desktop_nav_primary %}
+                <a class="sidenav-link {% if item.active %}active{% endif %}" href="{{ item.url }}" data-bs-dismiss="offcanvas">
+                    <i class="bi {{ item.icon }}"></i>
+                    <span>{{ item.label }}</span>
+                </a>
+            {% endfor %}
+            {% for section in desktop_nav_sections %}
+            <div class="sidenav-section-label mt-2">{{ section.label }}</div>
+            {% for item in section.links %}
+                <a class="sidenav-link {% if item.active %}active{% endif %}" href="{{ item.url }}" data-bs-dismiss="offcanvas">
+                    <i class="bi {{ item.icon }}"></i>
+                    <span>{{ item.label }}</span>
+                </a>
+            {% endfor %}
+            {% endfor %}
+        </div>
+        <div class="sidenav-section-label">Account</div>
+        {% if hospital_accesses %}
+        <div class="sidenav-section-label mt-2">Hospital workspace</div>
+        <div class="d-grid gap-2 mb-3">
+            {% for access in hospital_accesses %}
+            <form method="post" action="{% url 'switch_hospital' %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="hospital_id" value="{{ access.hospital.id }}">
+                <button class="sidenav-link w-100 text-start border-0 {% if current_hospital and current_hospital.id == access.hospital.id %}active{% endif %}" type="submit">
+                    <i class="bi bi-building"></i>
+                    <span>{{ access.hospital.name }}</span>
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="d-grid gap-2 mt-auto">
+            <a class="sidenav-link" href="{% url 'profile' %}" data-bs-dismiss="offcanvas"><i class="bi bi-person-badge"></i><span>Profile</span></a>
+            <a class="sidenav-link" href="{% url 'notifications' %}" data-bs-dismiss="offcanvas"><i class="bi bi-bell"></i><span>Notifications</span></a>
+            <a class="sidenav-link" href="{% url 'support' %}" data-bs-dismiss="offcanvas"><i class="bi bi-life-preserver"></i><span>Help &amp; Support</span></a>
+            <a class="sidenav-link" href="{% url 'privacy' %}" data-bs-dismiss="offcanvas"><i class="bi bi-shield-check"></i><span>Privacy</span></a>
+            <form method="post" action="{% url 'logout' %}" data-logout-form>
+                {% csrf_token %}
+                <button class="sidenav-link w-100 text-start border-0 bg-transparent" type="submit"><i class="bi bi-box-arrow-right"></i><span>Logout</span></button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="toast-container position-fixed top-0 end-0 p-3 toast-stack" id="toastContainer"></div>
+{% if user.is_authenticated %}<div id="notificationSocketMeta" hidden></div>{% endif %}
+{% if messages %}
+    <div hidden>
+        {% for message in messages %}
+            <div data-message-toast="{{ message }}" data-message-title="{{ platform_name }}" data-message-tone="{% if message.tags == 'error' %}danger{% elif message.tags == 'warning' %}warning{% elif message.tags == 'success' %}success{% else %}primary{% endif %}"></div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<main class="container-fluid px-3 px-lg-4 py-4 py-lg-5 page-enter app-main">
+    {% block content %}{% endblock %}
+</main>
+
+{% if user.is_authenticated and show_shell_chrome %}
+<div class="offcanvas offcanvas-end app-assistant text-bg-light" tabindex="-1" id="bayhealthAssistantPanel" aria-labelledby="bayhealthAssistantPanelLabel">
+    <div class="offcanvas-header assistant-topbar border-0">
+        <div class="assistant-topbar-copy">
+            <div class="assistant-header-chip"><i class="bi bi-stars"></i><span>{{ platform_name }} Assistant</span></div>
+            <div class="assistant-topbar-caption" id="bayhealthAssistantPanelLabel">Clinical support in one workspace</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body assistant-panel-body px-3 px-sm-4 pt-2 d-flex flex-column gap-3">
+        <div class="assistant-shell">
+            <div class="assistant-mode-strip">
+                <div class="assistant-mode-bar" id="assistantModeBar" role="tablist" aria-label="Assistant modes">
+                    <button class="assistant-mode-tab is-active" type="button" data-assistant-mode="patient_chart" role="tab" aria-selected="true">
+                        <i class="bi bi-journal-medical"></i><span>Patient chart</span>
+                    </button>
+                    <button class="assistant-mode-tab" type="button" data-assistant-mode="triage" role="tab" aria-selected="false">
+                        <i class="bi bi-clipboard2-pulse"></i><span>Triage</span>
+                    </button>
+                    <button class="assistant-mode-tab" type="button" data-assistant-mode="mental_health" role="tab" aria-selected="false">
+                        <i class="bi bi-flower2"></i><span>Mental health</span>
+                    </button>
+                    <button class="assistant-mode-tab" type="button" data-assistant-mode="hospital_operations" role="tab" aria-selected="false">
+                        <i class="bi bi-hospital"></i><span>Hospital operations</span>
+                    </button>
+                </div>
+            </div>
+            <div class="assistant-workspace-rail" id="assistantWorkspaceRail">
+                <section class="assistant-workspace-page assistant-workspace-chat" data-assistant-page="chat">
+                    <div class="assistant-conversation-shell">
+                        <div class="assistant-widget-banner">
+                            <div class="assistant-widget-title">
+                                <i class="bi bi-stars"></i>
+                                <span>Live care copilot</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="assistant-widget-status">Ready for guided responses</div>
+                                <button class="bh-btn bh-btn-outline-light bh-btn-inline assistant-reset-button" type="button" id="assistantClearButton"><i class="bi bi-arrow-clockwise"></i><span>New chat</span></button>
+                            </div>
+                        </div>
+                        <div id="assistantChatStream" class="assistant-chat-stream"></div>
+                        <div class="assistant-composer">
+                            <div class="assistant-composer-shell">
+                                <textarea id="assistantPrompt" class="form-control assistant-prompt-field" rows="1" aria-label="Assistant prompt" placeholder="Type your message here..."></textarea>
+                                <button class="bh-btn bh-btn-primary bh-btn-sm assistant-send-button" type="button" id="assistantAskButton" aria-label="Send message"><i class="bi bi-send-fill"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="assistant-workspace-page assistant-workspace-insights" data-assistant-page="insights">
+                    <div class="assistant-insights-shell">
+                        <div class="assistant-insights-header">
+                            <div class="assistant-widget-title">
+                                <i class="bi bi-grid-1x2"></i>
+                                <span>Insights and guidance</span>
+                            </div>
+                            <div class="assistant-widget-status">Support context and next-step guidance</div>
+                        </div>
+                        <div class="assistant-drawer-stack assistant-drawer-stack-insights">
+                            <details class="assistant-drawer assistant-drawer-info" id="assistantIntroDrawer">
+                                <summary class="assistant-drawer-toggle">
+                                    <span class="assistant-drawer-title"><i class="bi bi-info-circle"></i><span>Care guide</span></span>
+                                    <span class="assistant-drawer-meta">
+                                        <span class="badge text-bg-light assistant-drawer-badge assistant-drawer-badge-text">Info</span>
+                                        <i class="bi bi-chevron-down assistant-drawer-chevron"></i>
+                                    </span>
+                                </summary>
+                                <div class="assistant-drawer-body">
+                                    <div class="text-secondary small">Clinical guidance, triage support, and workflow suggestions. Ask for a care prompt, patient summary, or clinical next step.</div>
+                                </div>
+                            </details>
+                            <details class="assistant-drawer" id="assistantSummaryDrawer">
+                                <summary class="assistant-drawer-toggle">
+                                    <span class="assistant-drawer-title"><i class="bi bi-journal-text"></i><span>Current summary</span></span>
+                                    <span class="assistant-drawer-meta">
+                                        <span class="badge text-bg-light assistant-drawer-badge" id="assistantSummaryBadge">1</span>
+                                        <i class="bi bi-chevron-down assistant-drawer-chevron"></i>
+                                    </span>
+                                </summary>
+                                <div class="assistant-drawer-body">
+                                    <div id="assistantSummary" class="text-secondary small">Open the assistant to review the current workspace context.</div>
+                                </div>
+                            </details>
+                            <details class="assistant-drawer" id="assistantSuggestionsDrawer">
+                                <summary class="assistant-drawer-toggle">
+                                    <span class="assistant-drawer-title"><i class="bi bi-lightning-charge"></i><span>Suggested next steps</span></span>
+                                    <span class="assistant-drawer-meta">
+                                        <span class="badge text-bg-light assistant-drawer-badge" id="assistantSuggestionsBadge">0</span>
+                                        <i class="bi bi-chevron-down assistant-drawer-chevron"></i>
+                                    </span>
+                                </summary>
+                                <div class="assistant-drawer-body">
+                                    <div id="assistantSuggestions" class="d-grid gap-2"></div>
+                                </div>
+                            </details>
+                            <details class="assistant-drawer" id="assistantSafetyDrawer">
+                                <summary class="assistant-drawer-toggle">
+                                    <span class="assistant-drawer-title"><i class="bi bi-shield-check"></i><span>Safety note</span></span>
+                                    <span class="assistant-drawer-meta">
+                                        <span class="badge text-bg-light assistant-drawer-badge" id="assistantSafetyBadge">1</span>
+                                        <i class="bi bi-chevron-down assistant-drawer-chevron"></i>
+                                    </span>
+                                </summary>
+                                <div class="assistant-drawer-body">
+                                    <div id="assistantSafety" class="text-secondary small">Use assistant guidance together with clinical judgment and hospital policy.</div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="assistant-workspace-dots" id="assistantWorkspaceDots" aria-label="Assistant panel sections">
+                <button class="assistant-workspace-dot is-active" type="button" data-assistant-dot="0" aria-label="Open chat panel"></button>
+                <button class="assistant-workspace-dot" type="button" data-assistant-dot="1" aria-label="Open insights panel"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if show_shell_chrome %}
+<footer class="site-footer mt-auto">
+    <div class="container-fluid px-3 px-lg-4 py-4 py-lg-5">
+        <div class="mobile-footer-caption d-xl-none">
+            <i class="bi bi-stars"></i>
+            <span>You have reached the BayAfya page end. Scroll upward for the next care step.</span>
+        </div>
+        <div class="footer-shell">
+            <div class="footer-brand-block">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="navbar-brand-badge"><i class="bi bi-heart-pulse-fill"></i></span>
+                    <div>
+                        <div class="footer-brand">{{ platform_name }}</div>
+                        <div class="footer-subtitle">{% if current_hospital %}{{ current_hospital.name }}{% else %}Connected care platform{% endif %}</div>
+                    </div>
+                </div>
+                <p class="footer-summary mb-4">{{ footer_summary }}</p>
+                <div class="footer-meta small text-secondary">
+                    <span>© {% now "Y" %} {{ platform_name }}</span>
+                    <span>Secure care access</span>
+                    <span>Clinical, operational, and patient services</span>
+                </div>
+            </div>
+            <div class="footer-links-grid">
+                <div class="footer-link-column footer-link-column-primary">
+                    <div class="footer-heading">Quick access</div>
+                    <div class="footer-link-list">
+                        {% for item in footer_primary_links %}
+                            <a class="footer-link {% if item.active %}active{% endif %}" href="{{ item.url }}">
+                                <i class="bi {{ item.icon }}"></i>
+                                <span>{{ item.label }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if footer_more_links %}
+                <div class="footer-link-column footer-link-column-more">
+                    <div class="footer-heading">More</div>
+                    <div class="footer-link-list">
+                        {% for item in footer_more_links %}
+                            <a class="footer-link" href="{{ item.url }}">
+                                <i class="bi {{ item.icon }}"></i>
+                                <span>{{ item.label }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="footer-link-column footer-link-column-support">
+                    <div class="footer-heading">Support</div>
+                    <div class="footer-link-list">
+                        {% for item in footer_support_links %}
+                            <a class="footer-link" href="{{ item.url }}">
+                                <i class="bi {{ item.icon }}"></i>
+                                <span>{{ item.label }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+{% endif %}
+
+{% if invite_welcome_modal %}
+<div class="modal fade" id="inviteWelcomeModal" tabindex="-1" aria-labelledby="inviteWelcomeModalLabel" aria-hidden="true" data-auto-show-modal="inviteWelcomeModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-gradient-care text-white">
+                <div>
+                    <div class="small text-white-50">Welcome to {{ platform_name }}</div>
+                    <h5 class="modal-title mb-0" id="inviteWelcomeModalLabel">{{ invite_welcome_modal.hospital }}</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="welcome-modal-icon"><i class="bi bi-heart-pulse-fill"></i></div>
+                    <div class="min-w-0">
+                        <div class="fw-semibold mb-1">Access activated for {{ invite_welcome_modal.recipient }}</div>
+                        <p class="text-secondary mb-2">{{ invite_welcome_modal.message }}</p>
+                        <div class="soft-section p-3">
+                            <div class="small text-secondary mb-1">Invitation note</div>
+                            <div class="fw-medium">{{ invite_welcome_modal.note }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="bh-btn bh-btn-primary" data-bs-dismiss="modal"><i class="bi bi-check2"></i><span>Continue</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if user.is_authenticated and mobile_nav_tabs and show_shell_chrome %}
+<nav class="mobile-bottom-nav d-xl-none" aria-label="Mobile navigation" data-mobile-bottom-nav>
+    <div class="mobile-bottom-nav-scroll-hint" aria-hidden="true">
+        <i class="bi bi-chevron-double-right" data-mobile-bottom-nav-hint-icon></i>
+        <span data-mobile-bottom-nav-hint-label>More</span>
+    </div>
+    <div class="mobile-bottom-nav-inner" data-mobile-bottom-nav-inner>
+        {% for item in mobile_nav_tabs %}
+            <a class="mobile-tab {% if item.active %}active{% endif %}" href="{{ item.url }}" aria-label="{{ item.label }}" title="{{ item.label }}">
+                <i class="bi {{ item.icon }}"></i>
+                <span class="mobile-tab-label">{{ item.label }}</span>
+            </a>
+        {% endfor %}
+    </div>
+</nav>
+{% endif %}
+
+{% if user.is_authenticated and show_shell_chrome %}
+<button class="assistant-fab bh-btn bh-btn-primary" type="button" id="bayhealthAssistantFab" data-bs-toggle="offcanvas" data-bs-target="#bayhealthAssistantPanel" aria-controls="bayhealthAssistantPanel" aria-label="Open {{ platform_name }} Assistant" title="{{ platform_name }} Assistant">
+    <i class="bi bi-stars"></i>
+</button>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/app.js' %}?v=20260330-13"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

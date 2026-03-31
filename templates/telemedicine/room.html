@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Live room</span><h2 class="h3 mt-3 mb-0">Consultation room {{ consultation.room_id }}</h2></div>
+                <span class="status-pill"><i class="bi bi-camera-video"></i>{{ consultation.get_status_display }}</span>
+            </div>
+            <div id="chatMessages" class="chat-stream rounded-4 p-3 mb-3"></div>
+            <div class="d-flex gap-2">
+                <input id="messageInput" class="form-control" placeholder="Enter message">
+                <button class="bh-btn bh-btn-primary" type="button" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        {% if user.role == 'patient' %}
+        <div class="card p-4 mb-4">
+            <span class="section-kicker">Patient documents</span>
+            <h3 class="h4 mt-3">Upload report</h3>
+            <form method="post" enctype="multipart/form-data" action="{% url 'telemedicine:upload_report' consultation.id %}" class="stacked-form">
+                {% csrf_token %}
+                {% for field in upload_form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Upload</button>
+            </form>
+        </div>
+        {% endif %}
+        {% if user.role == 'doctor' %}
+        <div class="card p-4">
+            <span class="section-kicker">Clinical action</span>
+            <h3 class="h4 mt-3">Issue prescription</h3>
+            <form method="post" action="{% url 'telemedicine:issue_prescription' consultation.id %}" class="stacked-form">
+                {% csrf_token %}
+                {% for field in prescription_form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-primary" type="submit">Issue</button>
+            </form>
+            <hr class="my-4">
+            <h3 class="h5">Request in-person lab test</h3>
+            <form method="post" action="{% url 'telemedicine:issue_lab_request' consultation.id %}" class="stacked-form">
+                {% csrf_token %}
+                {% for field in lab_request_form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <button class="bh-btn bh-btn-outline" type="submit">Send lab request</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h3 class="h5">Prescriptions</h3>
+            <ul class="list-group list-group-flush">
+                {% for item in prescriptions %}
+                    <li class="list-group-item px-0">{{ item.medications }}</li>
+                {% empty %}
+                    <li class="list-group-item px-0">No prescriptions issued.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h3 class="h5">Uploaded reports</h3>
+            <ul class="list-group list-group-flush">
+                {% for item in reports %}
+                    <li class="list-group-item px-0"><a href="{{ item.file.url }}">{{ item.description|default:item.file.name }}</a></li>
+                {% empty %}
+                    <li class="list-group-item px-0">No reports uploaded.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const roomSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/video/{{ consultation.room_id }}/`);
+    roomSocket.onmessage = function(event) {
+        const payload = JSON.parse(event.data);
+        document.getElementById("chatMessages").innerHTML += `<div class="chat-bubble"><strong>${payload.sender}:</strong><div>${payload.message}</div></div>`;
+    };
+    function sendMessage() {
+        const input = document.getElementById("messageInput");
+        if (!input.value.trim()) return;
+        roomSocket.send(JSON.stringify({message: input.value}));
+        input.value = "";
+    }
+</script>
+{% endblock %}
