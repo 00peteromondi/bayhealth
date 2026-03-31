@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,23 +84,33 @@ ASGI_APPLICATION = "bayhealth_project.asgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# Set default values for the environment variables if they’re not already set
-os.environ.setdefault("PGDATABASE", "bayafya_db")
-os.environ.setdefault("PGUSER", "postgres")
-os.environ.setdefault("PGPASSWORD", "Donkaz101!")
-os.environ.setdefault("PGHOST", "localhost")
-os.environ.setdefault("PGPORT", "5432")
+_database_url = os.getenv("DATABASE_URL")
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ["PGDATABASE"],
-        'USER': os.environ["PGUSER"],
-        'PASSWORD': os.environ["PGPASSWORD"],
-        'HOST': os.environ["PGHOST"],
-        'PORT': os.environ["PGPORT"],
+if _database_url:
+    # Railway (and other PaaS) provide a single DATABASE_URL — parse it directly.
+    _db = urlparse(_database_url)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _db.path.lstrip("/"),
+            "USER": _db.username,
+            "PASSWORD": _db.password,
+            "HOST": _db.hostname,
+            "PORT": str(_db.port or 5432),
+        }
     }
-}
+else:
+    # Local development fallback: use individual PG* environment variables.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("PGDATABASE", "bayafya_db"),
+            "USER": os.getenv("PGUSER", "postgres"),
+            "PASSWORD": os.getenv("PGPASSWORD", ""),
+            "HOST": os.getenv("PGHOST", "localhost"),
+            "PORT": os.getenv("PGPORT", "5432"),
+        }
+    }
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
