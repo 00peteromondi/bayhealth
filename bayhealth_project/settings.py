@@ -248,15 +248,13 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "BayAfya <00peteromondi@gmail.com>")
 EMAIL_FAIL_SILENTLY = _bool_env("EMAIL_FAIL_SILENTLY", default=not IS_PRODUCTION)
 BREVO_API_KEY = (
-    os.getenv("BREVO_API_KEY")
-    or os.getenv("BAYSOKO_BREVO_API_KEY")
-    or os.getenv("SENDINBLUE_API_KEY", "")
+    os.getenv("BREVO_API_KEY", "")
 ).strip()
 if BREVO_API_KEY:
     EMAIL_BACKEND = "core.email_backends.BrevoEmailBackend"
 elif IS_PRODUCTION:
     logger.warning(
-        "Production is running without a Brevo API key. Emails will fall back to the console backend until BREVO_API_KEY or BAYSOKO_BREVO_API_KEY is configured."
+        "Production is running without BREVO_API_KEY. Emails will fall back to the console backend until BREVO_API_KEY is configured."
     )
 
 GOOGLE_AI_API_KEY = (

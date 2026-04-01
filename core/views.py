@@ -1,5 +1,6 @@
 from datetime import timedelta
 import json
+import logging
 
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -38,6 +39,9 @@ from hospital.models import (
     HospitalInvitation,
     Patient,
 )
+
+
+logger = logging.getLogger(__name__)
 from mental_health.models import MoodLog, TherapySession
 from pharmacy.models import Order
 from telemedicine.models import Prescription, VideoConsultation
