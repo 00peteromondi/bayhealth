@@ -239,6 +239,17 @@ def _send_email_verification(request, user, *, recipient_email=None):
     if user.email_verification_send_count >= 3:
         raise ValidationError("BayAfya can send only three verification codes per day. Please try again tomorrow.")
     code = "".join(secrets.choice("0123456789") for _ in range(7))
+    try:
+        delivered = send_email_verification(request, user, code, recipient_email=recipient_email)
+    except Exception as exc:
+        logger.exception("Email verification send failed for user %s.", getattr(user, "id", "unknown"))
+        raise ValidationError(
+            "BayAfya could not send the verification code right now. Please try again shortly."
+        ) from exc
+    if not delivered:
+        raise ValidationError(
+            "BayAfya could not send the verification code right now. Please try again shortly."
+        )
     user.email_verification_code = code
     user.email_verification_sent_at = now
     user.email_verification_send_count += 1
@@ -252,7 +263,6 @@ def _send_email_verification(request, user, *, recipient_email=None):
             "email_verification_failed_date",
         ]
     )
-    send_email_verification(request, user, code, recipient_email=recipient_email)
     return code
 
 

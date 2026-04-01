@@ -4,7 +4,13 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, send_mail
 from django.template.loader import render_to_string
 from django.urls import reverse
+
+import logging
+
 from .models import Notification, StaffConversation, StaffConversationParticipant, StaffMessage, User
+
+
+logger = logging.getLogger(__name__)
 
 
 def send_user_notification(user: User, title: str, message: str) -> Notification:
@@ -33,10 +39,10 @@ def send_user_notification(user: User, title: str, message: str) -> Notification
     return notification
 
 
-def send_email_verification(request, user: User, code: str, *, recipient_email: str | None = None) -> None:
+def send_email_verification(request, user: User, code: str, *, recipient_email: str | None = None) -> bool:
     email = (recipient_email or getattr(user, "email", "") or "").strip()
     if not email:
-        return
+        return False
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
     context = {
         "user": user,
@@ -50,7 +56,11 @@ def send_email_verification(request, user: User, code: str, *, recipient_email: 
     html_body = render_to_string("core/email_verification_email.html", context)
     email_message = EmailMultiAlternatives(subject, text_body, from_email, [email])
     email_message.attach_alternative(html_body, "text/html")
-    email_message.send(fail_silently=getattr(settings, "EMAIL_FAIL_SILENTLY", True))
+    delivered = email_message.send(fail_silently=getattr(settings, "EMAIL_FAIL_SILENTLY", True))
+    if not delivered:
+        logger.error("Email verification was not delivered to %s.", email)
+        return False
+    return True
 
 
 def broadcast_staff_message(conversation: StaffConversation, message: StaffMessage) -> None:
