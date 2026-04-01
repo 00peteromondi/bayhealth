@@ -12,6 +12,66 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class BrevoEmailError(RuntimeError):
+    """Raised when Brevo email delivery fails in a non-transient way."""
+
+
+class BrevoEmailAuthError(BrevoEmailError):
+    """Raised when Brevo rejects the configured API key."""
+
+
+def _brevo_headers(api_key: str) -> dict[str, str]:
+    return {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": api_key,
+    }
+
+
+def _read_error_body(exc: error.HTTPError) -> str:
+    try:
+        return exc.read().decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
+def check_brevo_credentials(timeout: int = 8) -> dict[str, object]:
+    api_key = os.getenv("BREVO_API_KEY", "").strip()
+    if not api_key:
+        return {
+            "ok": False,
+            "status": None,
+            "message": "BREVO_API_KEY is not configured.",
+        }
+
+    request_obj = urllib_request.Request(
+        "https://api.brevo.com/v3/account",
+        headers=_brevo_headers(api_key),
+        method="GET",
+    )
+    try:
+        with urllib_request.urlopen(request_obj, timeout=timeout) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            return {
+                "ok": True,
+                "status": getattr(response, "status", 200),
+                "message": "Brevo accepted the configured API key.",
+                "body": body,
+            }
+    except error.HTTPError as exc:
+        return {
+            "ok": False,
+            "status": exc.code,
+            "message": _read_error_body(exc) or str(exc.reason),
+        }
+    except error.URLError as exc:
+        return {
+            "ok": False,
+            "status": None,
+            "message": f"Network error while contacting Brevo: {exc}",
+        }
+
+
 class BrevoEmailBackend(BaseEmailBackend):
     api_url = "https://api.brevo.com/v3/smtp/email"
 
@@ -33,6 +93,8 @@ class BrevoEmailBackend(BaseEmailBackend):
     def send_messages(self, email_messages):
         if not self.api_key:
             logger.error("BrevoEmailBackend was selected but no Brevo API key is configured.")
+            if not self.fail_silently:
+                raise BrevoEmailError("BREVO_API_KEY is not configured.")
             return 0
 
         delivered = 0
@@ -63,22 +125,14 @@ class BrevoEmailBackend(BaseEmailBackend):
             request_obj = urllib_request.Request(
                 self.api_url,
                 data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "accept": "application/json",
-                    "content-type": "application/json",
-                    "api-key": self.api_key,
-                },
+                headers=_brevo_headers(self.api_key),
                 method="POST",
             )
             try:
                 with urllib_request.urlopen(request_obj, timeout=12):
                     delivered += 1
             except error.HTTPError as exc:
-                response_body = ""
-                try:
-                    response_body = exc.read().decode("utf-8", errors="replace")
-                except Exception:
-                    response_body = ""
+                response_body = _read_error_body(exc)
                 logger.error(
                     "Brevo email send failed with HTTP %s for recipients %s. Response: %s",
                     exc.code,
@@ -86,7 +140,14 @@ class BrevoEmailBackend(BaseEmailBackend):
                     response_body or exc.reason,
                 )
                 if not self.fail_silently:
-                    raise
+                    if exc.code == 401:
+                        raise BrevoEmailAuthError(
+                            "Brevo rejected BREVO_API_KEY with HTTP 401. The configured key is not enabled for "
+                            "transactional email on this environment."
+                        ) from exc
+                    raise BrevoEmailError(
+                        f"Brevo email send failed with HTTP {exc.code}: {response_body or exc.reason}"
+                    ) from exc
             except error.URLError as exc:
                 logger.error(
                     "Brevo email send failed for recipients %s due to network error: %s",
@@ -94,5 +155,5 @@ class BrevoEmailBackend(BaseEmailBackend):
                     exc,
                 )
                 if not self.fail_silently:
-                    raise
+                    raise BrevoEmailError(f"Brevo email send failed due to network error: {exc}") from exc
         return delivered
