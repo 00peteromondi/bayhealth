@@ -1,0 +1,18 @@
+# Ignore environment files
+.env
+.env.*
+
+# Python / virtualenv
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+
+# Django / project
+db.sqlite3
+/staticfiles/
+media/
+
+# Node
+node_modules/
