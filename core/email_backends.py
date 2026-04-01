@@ -6,6 +6,11 @@ from urllib import error, request as urllib_request
 from django.conf import settings
 from django.core.mail.backends.base import BaseEmailBackend
 
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 class BrevoEmailBackend(BaseEmailBackend):
     api_url = "https://api.brevo.com/v3/smtp/email"
@@ -32,6 +37,7 @@ class BrevoEmailBackend(BaseEmailBackend):
 
     def send_messages(self, email_messages):
         if not self.api_key:
+            logger.error("BrevoEmailBackend was selected but no Brevo API key is configured.")
             return 0
 
         delivered = 0
@@ -72,10 +78,26 @@ class BrevoEmailBackend(BaseEmailBackend):
             try:
                 with urllib_request.urlopen(request_obj, timeout=12):
                     delivered += 1
-            except error.HTTPError:
+            except error.HTTPError as exc:
+                response_body = ""
+                try:
+                    response_body = exc.read().decode("utf-8", errors="replace")
+                except Exception:
+                    response_body = ""
+                logger.error(
+                    "Brevo email send failed with HTTP %s for recipients %s. Response: %s",
+                    exc.code,
+                    ",".join(message.recipients()),
+                    response_body or exc.reason,
+                )
                 if not self.fail_silently:
                     raise
-            except error.URLError:
+            except error.URLError as exc:
+                logger.error(
+                    "Brevo email send failed for recipients %s due to network error: %s",
+                    ",".join(message.recipients()),
+                    exc,
+                )
                 if not self.fail_silently:
                     raise
         return delivered
