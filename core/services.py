@@ -15,7 +15,7 @@ def send_user_notification(user: User, title: str, message: str) -> Notification
             message=message,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
             recipient_list=[user.email],
-            fail_silently=True,
+            fail_silently=getattr(settings, "EMAIL_FAIL_SILENTLY", True),
         )
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
@@ -50,7 +50,7 @@ def send_email_verification(request, user: User, code: str, *, recipient_email: 
     html_body = render_to_string("core/email_verification_email.html", context)
     email_message = EmailMultiAlternatives(subject, text_body, from_email, [email])
     email_message.attach_alternative(html_body, "text/html")
-    email_message.send(fail_silently=True)
+    email_message.send(fail_silently=getattr(settings, "EMAIL_FAIL_SILENTLY", True))
 
 
 def broadcast_staff_message(conversation: StaffConversation, message: StaffMessage) -> None:
