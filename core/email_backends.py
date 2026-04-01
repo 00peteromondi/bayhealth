@@ -17,12 +17,7 @@ class BrevoEmailBackend(BaseEmailBackend):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.api_key = (
-            os.getenv("BREVO_API_KEY")
-            or os.getenv("BAYSOKO_BREVO_API_KEY")
-            or os.getenv("SENDINBLUE_API_KEY")
-            or ""
-        ).strip()
+        self.api_key = os.getenv("BREVO_API_KEY", "").strip()
         self.sender_email = (
             os.getenv("BREVO_SENDER_EMAIL")
             or parseaddr(getattr(settings, "DEFAULT_FROM_EMAIL", "00peteromondi@gmail.com"))[1]
