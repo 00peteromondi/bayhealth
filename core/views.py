@@ -46,6 +46,7 @@ from mental_health.models import MoodLog, TherapySession
 from pharmacy.models import Order
 from telemedicine.models import Prescription, VideoConsultation
 from .assistant import build_assistant_chat_response, build_assistant_response, evaluate_patient_access
+from .email_backends import BrevoEmailAuthError
 
 from .forms import (
     AssistantAccessGrantForm,
@@ -245,6 +246,11 @@ def _send_email_verification(request, user, *, recipient_email=None):
     code = "".join(secrets.choice("0123456789") for _ in range(7))
     try:
         delivered = send_email_verification(request, user, code, recipient_email=recipient_email)
+    except BrevoEmailAuthError as exc:
+        logger.exception("Brevo rejected the configured API key while sending verification for user %s.", getattr(user, "id", "unknown"))
+        raise ValidationError(
+            "BayAfya email is not configured correctly right now. Brevo rejected the configured API key."
+        ) from exc
     except Exception as exc:
         logger.exception("Email verification send failed for user %s.", getattr(user, "id", "unknown"))
         raise ValidationError(
