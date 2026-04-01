@@ -247,14 +247,21 @@ LOGOUT_REDIRECT_URL = "home"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "BayAfya <00peteromondi@gmail.com>")
 EMAIL_FAIL_SILENTLY = _bool_env("EMAIL_FAIL_SILENTLY", default=not IS_PRODUCTION)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "").strip()
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "").strip()
+EMAIL_USE_TLS = _bool_env("EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = _bool_env("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 BREVO_API_KEY = (
     os.getenv("BREVO_API_KEY", "")
 ).strip()
-if BREVO_API_KEY:
+if BREVO_API_KEY or (EMAIL_HOST and EMAIL_HOST_USER and EMAIL_HOST_PASSWORD):
     EMAIL_BACKEND = "core.email_backends.BrevoEmailBackend"
 elif IS_PRODUCTION:
     logger.warning(
-        "Production is running without BREVO_API_KEY. Emails will fall back to the console backend until BREVO_API_KEY is configured."
+        "Production is running without BREVO_API_KEY or SMTP email credentials. Emails will fall back to the console backend until one of those delivery paths is configured."
     )
 
 GOOGLE_AI_API_KEY = (
