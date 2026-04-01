@@ -6,7 +6,9 @@ APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$APP_DIR"
 
 echo "-> BayAfya Railway release: running migrations"
-python manage.py migrate --noinput
-
-echo "-> BayAfya Railway release: collecting static files"
-python manage.py collectstatic --noinput
+if python manage.py migrate --noinput; then
+  echo "-> BayAfya Railway release: collecting static files"
+  python manage.py collectstatic --noinput || echo "-> collectstatic failed during release; startup will retry"
+else
+  echo "-> Release-phase database setup unavailable; deferring migrations/static collection to runtime startup"
+fi
