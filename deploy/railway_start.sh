@@ -11,4 +11,5 @@ python manage.py migrate --noinput
 echo "-> BayAfya Railway startup: collecting static files"
 python manage.py collectstatic --noinput
 
+export DJANGO_SETTINGS_MODULE=bayhealth_project.settings
 exec python -m daphne -b 0.0.0.0 -p "${PORT:-8000}" bayhealth_project.asgi:application
