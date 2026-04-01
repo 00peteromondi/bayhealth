@@ -4,6 +4,7 @@ from email.utils import parseaddr
 from urllib import error, request as urllib_request
 
 from django.conf import settings
+from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
 from django.core.mail.backends.base import BaseEmailBackend
 
 import logging
@@ -33,6 +34,13 @@ def _read_error_body(exc: error.HTTPError) -> str:
         return exc.read().decode("utf-8", errors="replace")
     except Exception:
         return ""
+
+
+def _has_smtp_config() -> bool:
+    smtp_host = (getattr(settings, "EMAIL_HOST", "") or "").strip()
+    smtp_user = (getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
+    smtp_pass = (getattr(settings, "EMAIL_HOST_PASSWORD", "") or "").strip()
+    return bool(smtp_host and smtp_user and smtp_pass)
 
 
 def check_brevo_credentials(timeout: int = 8) -> dict[str, object]:
@@ -90,16 +98,64 @@ class BrevoEmailBackend(BaseEmailBackend):
         )
         self.reply_to = os.getenv("BREVO_REPLY_TO", "").strip()
 
-    def send_messages(self, email_messages):
-        if not self.api_key:
-            logger.error("BrevoEmailBackend was selected but no Brevo API key is configured.")
+    def _smtp_backend(self):
+        if not _has_smtp_config():
+            return None
+        return SMTPEmailBackend(
+            host=getattr(settings, "EMAIL_HOST", ""),
+            port=getattr(settings, "EMAIL_PORT", 587),
+            username=getattr(settings, "EMAIL_HOST_USER", ""),
+            password=getattr(settings, "EMAIL_HOST_PASSWORD", ""),
+            use_tls=getattr(settings, "EMAIL_USE_TLS", True),
+            use_ssl=getattr(settings, "EMAIL_USE_SSL", False),
+            timeout=getattr(settings, "EMAIL_TIMEOUT", 10),
+            fail_silently=self.fail_silently,
+        )
+
+    def _deliver_with_smtp_fallback(self, message, reason: str) -> int:
+        smtp_backend = self._smtp_backend()
+        if not smtp_backend:
+            logger.warning(
+                "Brevo SMTP fallback is unavailable after %s because EMAIL_HOST/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD are not fully configured.",
+                reason,
+            )
             if not self.fail_silently:
-                raise BrevoEmailError("BREVO_API_KEY is not configured.")
+                raise BrevoEmailError(
+                    f"Brevo API send failed after {reason}, and SMTP fallback is not configured."
+                )
             return 0
 
+        if not message.from_email:
+            message.from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
+        try:
+            sent = smtp_backend.send_messages([message]) or 0
+            if sent:
+                logger.info(
+                    "Email delivered via SMTP fallback to %s after %s.",
+                    ",".join(message.recipients()),
+                    reason,
+                )
+            return sent
+        except Exception as exc:
+            logger.exception(
+                "SMTP fallback failed for recipients %s after %s.",
+                ",".join(message.recipients()),
+                reason,
+            )
+            if not self.fail_silently:
+                raise BrevoEmailError(
+                    f"Brevo API send failed after {reason}, and SMTP fallback also failed: {exc}"
+                ) from exc
+            return 0
+
+    def send_messages(self, email_messages):
         delivered = 0
         for message in email_messages:
             if not message.recipients():
+                continue
+            if not self.api_key:
+                logger.error("BrevoEmailBackend was selected but no Brevo API key is configured.")
+                delivered += self._deliver_with_smtp_fallback(message, "missing BREVO_API_KEY")
                 continue
             payload = {
                 "sender": {
@@ -139,21 +195,21 @@ class BrevoEmailBackend(BaseEmailBackend):
                     ",".join(message.recipients()),
                     response_body or exc.reason,
                 )
-                if not self.fail_silently:
+                try:
+                    sent = self._deliver_with_smtp_fallback(message, f"Brevo HTTP {exc.code}")
+                    delivered += sent
+                except BrevoEmailError:
                     if exc.code == 401:
                         raise BrevoEmailAuthError(
                             "Brevo rejected BREVO_API_KEY with HTTP 401. The configured key is not enabled for "
                             "transactional email on this environment."
                         ) from exc
-                    raise BrevoEmailError(
-                        f"Brevo email send failed with HTTP {exc.code}: {response_body or exc.reason}"
-                    ) from exc
+                    raise
             except error.URLError as exc:
                 logger.error(
                     "Brevo email send failed for recipients %s due to network error: %s",
                     ",".join(message.recipients()),
                     exc,
                 )
-                if not self.fail_silently:
-                    raise BrevoEmailError(f"Brevo email send failed due to network error: {exc}") from exc
+                delivered += self._deliver_with_smtp_fallback(message, f"network error {exc}")
         return delivered
