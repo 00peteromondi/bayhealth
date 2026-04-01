@@ -23,7 +23,7 @@ from .models import AssistantAccessGrant, User
 
 logger = logging.getLogger(__name__)
 
-LOCKED_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
 
 
 def _google_ai_api_keys() -> list[str]:
@@ -56,6 +56,10 @@ def _google_ai_api_keys() -> list[str]:
         cleaned = str(key or "").strip()
         if cleaned and cleaned not in keys:
             keys.append(cleaned)
+    if keys:
+        os.environ["GOOGLE_AI_API_KEY"] = keys[0]
+        os.environ["GEMINI_API_KEY"] = keys[0]
+        os.environ["GOOGLE_API_KEY"] = keys[0]
     return keys
 
 
@@ -63,8 +67,10 @@ def _google_ai_config() -> tuple[str, str]:
     api_keys = _google_ai_api_keys()
     model = (
         os.environ.get("GOOGLE_AI_MODEL")
+        or os.environ.get("GEMINI_MODEL")
         or getattr(settings, "GOOGLE_AI_MODEL", "")
-        or LOCKED_GEMINI_MODEL
+        or getattr(settings, "GEMINI_MODEL", "")
+        or DEFAULT_GEMINI_MODEL
     )
     return model, (api_keys[0] if api_keys else "")
 
@@ -77,19 +83,35 @@ def _get_baycare_gemini_model() -> str:
         or os.environ.get("GEMINI_MODEL")
         or getattr(settings, "GOOGLE_AI_MODEL", "")
         or getattr(settings, "GEMINI_MODEL", "")
-        or LOCKED_GEMINI_MODEL
+        or DEFAULT_GEMINI_MODEL
     )
-    if configured != LOCKED_GEMINI_MODEL:
-        logger.info(
-            "BayAfya Assistant overriding configured Gemini model %s and using locked model %s.",
-            configured,
-            LOCKED_GEMINI_MODEL,
-        )
-    return LOCKED_GEMINI_MODEL
+    return configured
 
 
 def _get_baycare_gemini_models() -> list[str]:
-    return [_get_baycare_gemini_model()]
+    models: list[str] = []
+    configured_sources = [
+        os.environ.get("BAYCARE_ASSISTANT_GEMINI_CANDIDATES", ""),
+        os.environ.get("GEMINI_CANDIDATE_MODELS", ""),
+        os.environ.get("GOOGLE_AI_MODELS", ""),
+        getattr(settings, "BAYCARE_ASSISTANT_GEMINI_CANDIDATES", []),
+        getattr(settings, "GEMINI_CANDIDATE_MODELS", []),
+        getattr(settings, "GOOGLE_AI_CANDIDATE_MODELS", []),
+    ]
+    primary = _get_baycare_gemini_model()
+    if primary:
+        models.append(primary)
+    for raw in configured_sources:
+        if isinstance(raw, str):
+            candidates = [item.strip() for item in raw.split(",") if item.strip()]
+        else:
+            candidates = [str(item).strip() for item in (raw or []) if str(item).strip()]
+        for candidate in candidates:
+            if candidate not in models:
+                models.append(candidate)
+    if not models:
+        models.append(DEFAULT_GEMINI_MODEL)
+    return models
 
 
 @dataclass
@@ -400,7 +422,6 @@ def _looks_generic_ai_payload(payload: dict[str, Any] | None) -> bool:
 
 def _gemini_generation_config(thinking_level: str = "low") -> dict[str, Any]:
     return {
-        "thinking_config": {"thinking_level": thinking_level},
         "response_mime_type": "application/json",
     }
 
@@ -513,26 +534,38 @@ def _google_ai_sdk_response(prompt: str, *, thinking_level: str = "low") -> dict
         logger.info("BayAfya Assistant Gemini SDK unavailable, using REST fallback: %s", exc)
         return None
 
-    model = _get_baycare_gemini_model()
+    models = _get_baycare_gemini_models()
     for index, api_key in enumerate(api_keys, start=1):
         try:
             client = genai.Client(api_key=api_key)
         except Exception as exc:
             logger.warning("BayAfya Assistant Gemini SDK client init failed for configured key %s: %s", index, exc)
             continue
-        payload, quota_limited = _sdk_generate_json_response_with_status(
-            client,
-            model=model,
-            prompt=prompt,
-            thinking_level=thinking_level,
-        )
-        if payload:
-            return payload
-        if quota_limited:
-            logger.info("BayAfya Assistant rotating to the next Gemini API key after quota pressure on key %s.", index)
+        key_quota_limited = False
+        for model in models:
+            payload, quota_limited = _sdk_generate_json_response_with_status(
+                client,
+                model=model,
+                prompt=prompt,
+                thinking_level=thinking_level,
+            )
+            key_quota_limited = key_quota_limited or quota_limited
+            if payload:
+                return payload
+            if quota_limited:
+                logger.info(
+                    "BayAfya Assistant rotating to the next Gemini API key after quota pressure on key %s for model %s.",
+                    index,
+                    model,
+                )
+                break
+            logger.info(
+                "BayAfya Assistant Gemini SDK model %s did not yield a usable payload on key %s.",
+                model,
+                index,
+            )
+        if key_quota_limited:
             continue
-        logger.info("BayAfya Assistant Gemini SDK stopped on key %s without quota exhaustion.", index)
-        break
     return None
 
 
@@ -547,57 +580,70 @@ def _google_ai_response(prompt: str, *, thinking_level: str = "low") -> dict[str
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
-            "thinkingConfig": {"thinkingLevel": thinking_level},
             "responseMimeType": "application/json",
         },
     }
-    model = _get_baycare_gemini_model()
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    models = _get_baycare_gemini_models()
     for index, api_key in enumerate(api_keys, start=1):
-        for attempt in range(1, 3):
-            try:
-                req = urlrequest.Request(
-                    endpoint,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": api_key,
-                    },
-                    method="POST",
-                )
-                with urlrequest.urlopen(req, timeout=20) as response:
-                    raw = response.read().decode("utf-8")
-                data = json.loads(raw)
-                text_output = "".join(
-                    part.get("text", "")
-                    for candidate in data.get("candidates", [])
-                    for part in candidate.get("content", {}).get("parts", [])
-                )
-                parsed = _parse_ai_response(text_output)
-                if parsed and not _looks_generic_ai_payload(parsed):
-                    return parsed
-                if parsed:
-                    logger.info("BayAfya Assistant received a generic AI payload from model %s.", model)
-                break
-            except error.HTTPError as exc:
+        quota_limited = False
+        for model in models:
+            endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            for attempt in range(1, 3):
                 try:
-                    error_body = exc.read().decode("utf-8", errors="ignore")
-                except Exception:
-                    error_body = ""
-                logger.warning("BayAfya Assistant Google AI HTTP error %s for model %s using key %s.", exc.code, model, index)
-                if _is_quota_limited_google_error(exc):
-                    logger.info("BayAfya Assistant rotating to the next Gemini API key after REST quota pressure on key %s.", index)
+                    req = urlrequest.Request(
+                        endpoint,
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={
+                            "Content-Type": "application/json",
+                            "x-goog-api-key": api_key,
+                        },
+                        method="POST",
+                    )
+                    with urlrequest.urlopen(req, timeout=20) as response:
+                        raw = response.read().decode("utf-8")
+                    data = json.loads(raw)
+                    text_output = "".join(
+                        part.get("text", "")
+                        for candidate in data.get("candidates", [])
+                        for part in candidate.get("content", {}).get("parts", [])
+                    )
+                    parsed = _parse_ai_response(text_output)
+                    if parsed and not _looks_generic_ai_payload(parsed):
+                        return parsed
+                    if parsed:
+                        logger.info("BayAfya Assistant received a generic AI payload from model %s.", model)
                     break
-                if _is_retryable_google_error(exc) and attempt < 2:
-                    time_module.sleep((2 ** attempt) + random.uniform(0, 0.5))
-                    continue
-                return None
-            except (error.URLError, TimeoutError, ValueError, json.JSONDecodeError, AttributeError, TypeError) as exc:
-                logger.warning("BayAfya Assistant Google AI error for model %s using key %s: %s", model, index, exc)
-                if attempt < 2:
-                    time_module.sleep((2 ** attempt) + random.uniform(0, 0.5))
-                    continue
-                return None
+                except error.HTTPError as exc:
+                    try:
+                        error_body = exc.read().decode("utf-8", errors="ignore")
+                    except Exception:
+                        error_body = ""
+                    logger.warning(
+                        "BayAfya Assistant Google AI HTTP error %s for model %s using key %s. Body: %s",
+                        exc.code,
+                        model,
+                        index,
+                        error_body,
+                    )
+                    if _is_quota_limited_google_error(exc):
+                        quota_limited = True
+                        break
+                    if exc.code == 404:
+                        logger.info("BayAfya Assistant skipping unavailable Gemini model %s.", model)
+                        break
+                    if _is_retryable_google_error(exc) and attempt < 2:
+                        time_module.sleep((2 ** attempt) + random.uniform(0, 0.5))
+                        continue
+                    break
+                except (error.URLError, TimeoutError, ValueError, json.JSONDecodeError, AttributeError, TypeError) as exc:
+                    logger.warning("BayAfya Assistant Google AI error for model %s using key %s: %s", model, index, exc)
+                    if attempt < 2:
+                        time_module.sleep((2 ** attempt) + random.uniform(0, 0.5))
+                        continue
+                    break
+            if quota_limited:
+                logger.info("BayAfya Assistant rotating to the next Gemini API key after REST quota pressure on key %s.", index)
+                break
     return None
 
 
