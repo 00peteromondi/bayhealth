@@ -8,6 +8,11 @@ import redis
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+RUNNING_ON_RAILWAY = bool(
+    os.getenv("RAILWAY_ENVIRONMENT")
+    or os.getenv("RAILWAY_PROJECT_ID")
+    or os.getenv("RAILWAY_SERVICE_ID")
+)
 
 
 def _load_env_file(path: Path) -> None:
@@ -92,8 +97,8 @@ def _database_from_local_env() -> dict:
         config["OPTIONS"] = {"sslmode": os.getenv("DB_SSLMODE", "require")}
     return config
 
-
-_load_env_file(BASE_DIR / ".env")
+if not RUNNING_ON_RAILWAY:
+    _load_env_file(BASE_DIR / ".env")
 
 RUNNING_RUNSERVER = "runserver" in sys.argv
 TESTING = "test" in sys.argv
