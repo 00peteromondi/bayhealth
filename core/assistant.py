@@ -111,6 +111,17 @@ def _get_baycare_gemini_models() -> list[str]:
                 models.append(candidate)
     if not models:
         models.append(DEFAULT_GEMINI_MODEL)
+    # Always append quota-friendly fallback models so that when the primary
+    # model (or any configured candidate) hits a free-tier quota limit we have
+    # cheaper alternatives to try before giving up entirely.
+    quota_friendly_fallbacks = [
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+    ]
+    for fallback in quota_friendly_fallbacks:
+        if fallback not in models:
+            models.append(fallback)
     return models
 
 
@@ -534,38 +545,65 @@ def _google_ai_sdk_response(prompt: str, *, thinking_level: str = "low") -> dict
         logger.info("BayAfya Assistant Gemini SDK unavailable, using REST fallback: %s", exc)
         return None
 
-    models = _get_baycare_gemini_models()
+    all_models = _get_baycare_gemini_models()
+    # Track which models are quota-limited across all keys so we can
+    # deprioritise them (move to the end) for subsequent keys in this cycle.
+    quota_limited_models: set[str] = set()
+
     for index, api_key in enumerate(api_keys, start=1):
         try:
             client = genai.Client(api_key=api_key)
         except Exception as exc:
             logger.warning("BayAfya Assistant Gemini SDK client init failed for configured key %s: %s", index, exc)
             continue
-        key_quota_limited = False
+
+        # Deprioritise models that already hit quota on a previous key by
+        # moving them to the end of the candidate list for this key.
+        models = [m for m in all_models if m not in quota_limited_models] + [
+            m for m in all_models if m in quota_limited_models
+        ]
+
+        key_had_quota_hit = False
         for model in models:
+            logger.info(
+                "BayAfya Assistant trying Gemini SDK model %s on key %s.",
+                model,
+                index,
+            )
             payload, quota_limited = _sdk_generate_json_response_with_status(
                 client,
                 model=model,
                 prompt=prompt,
                 thinking_level=thinking_level,
             )
-            key_quota_limited = key_quota_limited or quota_limited
-            if payload:
-                return payload
             if quota_limited:
-                logger.info(
-                    "BayAfya Assistant rotating to the next Gemini API key after quota pressure on key %s for model %s.",
-                    index,
+                quota_limited_models.add(model)
+                key_had_quota_hit = True
+                logger.warning(
+                    "BayAfya Assistant quota limit hit for model %s on key %s — trying next model.",
                     model,
+                    index,
                 )
-                break
+                # Do NOT break — continue trying remaining models on this key.
+                continue
+            if payload:
+                logger.info(
+                    "BayAfya Assistant Gemini SDK succeeded with model %s on key %s.",
+                    model,
+                    index,
+                )
+                return payload
             logger.info(
                 "BayAfya Assistant Gemini SDK model %s did not yield a usable payload on key %s.",
                 model,
                 index,
             )
-        if key_quota_limited:
-            continue
+
+        if key_had_quota_hit:
+            logger.info(
+                "BayAfya Assistant exhausted all models on key %s due to quota limits — rotating to next key.",
+                index,
+            )
     return None
 
 
@@ -577,22 +615,37 @@ def _google_ai_response(prompt: str, *, thinking_level: str = "low") -> dict[str
     sdk_payload = _google_ai_sdk_response(prompt, thinking_level=thinking_level)
     if sdk_payload:
         return sdk_payload
-    payload = {
+    request_payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
         },
     }
-    models = _get_baycare_gemini_models()
+    all_models = _get_baycare_gemini_models()
+    # Track quota-limited models across keys so they can be deprioritised for
+    # subsequent keys within the same request cycle.
+    quota_limited_models: set[str] = set()
+
     for index, api_key in enumerate(api_keys, start=1):
-        quota_limited = False
+        # Deprioritise models that already hit quota on a previous key.
+        models = [m for m in all_models if m not in quota_limited_models] + [
+            m for m in all_models if m in quota_limited_models
+        ]
+
+        key_had_quota_hit = False
         for model in models:
+            logger.info(
+                "BayAfya Assistant trying REST model %s on key %s.",
+                model,
+                index,
+            )
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            model_quota_hit = False
             for attempt in range(1, 3):
                 try:
                     req = urlrequest.Request(
                         endpoint,
-                        data=json.dumps(payload).encode("utf-8"),
+                        data=json.dumps(request_payload).encode("utf-8"),
                         headers={
                             "Content-Type": "application/json",
                             "x-goog-api-key": api_key,
@@ -609,9 +662,14 @@ def _google_ai_response(prompt: str, *, thinking_level: str = "low") -> dict[str
                     )
                     parsed = _parse_ai_response(text_output)
                     if parsed and not _looks_generic_ai_payload(parsed):
+                        logger.info(
+                            "BayAfya Assistant REST succeeded with model %s on key %s.",
+                            model,
+                            index,
+                        )
                         return parsed
                     if parsed:
-                        logger.info("BayAfya Assistant received a generic AI payload from model %s.", model)
+                        logger.info("BayAfya Assistant received a generic AI payload from model %s on key %s.", model, index)
                     break
                 except error.HTTPError as exc:
                     try:
@@ -626,7 +684,14 @@ def _google_ai_response(prompt: str, *, thinking_level: str = "low") -> dict[str
                         error_body,
                     )
                     if _is_quota_limited_google_error(exc):
-                        quota_limited = True
+                        model_quota_hit = True
+                        quota_limited_models.add(model)
+                        key_had_quota_hit = True
+                        logger.warning(
+                            "BayAfya Assistant quota limit hit for REST model %s on key %s — trying next model.",
+                            model,
+                            index,
+                        )
                         break
                     if exc.code == 404:
                         logger.info("BayAfya Assistant skipping unavailable Gemini model %s.", model)
@@ -641,9 +706,16 @@ def _google_ai_response(prompt: str, *, thinking_level: str = "low") -> dict[str
                         time_module.sleep((2 ** attempt) + random.uniform(0, 0.5))
                         continue
                     break
-            if quota_limited:
-                logger.info("BayAfya Assistant rotating to the next Gemini API key after REST quota pressure on key %s.", index)
-                break
+            # Do NOT break out of the model loop on quota — continue to the
+            # next model on this key.
+            if model_quota_hit:
+                continue
+
+        if key_had_quota_hit:
+            logger.info(
+                "BayAfya Assistant exhausted all REST models on key %s due to quota limits — rotating to next key.",
+                index,
+            )
     return None
 
 
