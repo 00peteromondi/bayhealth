@@ -131,6 +131,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return action && action.trim() ? action : fallback;
     }
 
+    function getCsrfToken(source = document) {
+        if (source instanceof HTMLFormElement) {
+            const localToken = source.querySelector("[name=csrfmiddlewaretoken]")?.value;
+            if (localToken) return localToken;
+        }
+        if (source instanceof HTMLElement) {
+            const scopedToken = source.querySelector?.("[name=csrfmiddlewaretoken]")?.value;
+            if (scopedToken) return scopedToken;
+        }
+        return document.querySelector("[name=csrfmiddlewaretoken]")?.value || "";
+    }
+
     function showInlineFormErrors(form, errors) {
         if (!form || !errors) return;
         Object.entries(errors).forEach(([name, messages]) => {
@@ -548,11 +560,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="text-secondary small mb-3">${escapeHtml(task.details)}</div>
                 <div class="d-flex flex-wrap gap-2" data-doctor-task-actions="${task.id}">
                     <form method="post" action="/hospital/doctor/tasks/${task.id}/status/done/" data-async-dashboard-form data-async-behavior="doctor-task-status">
-                        <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(document.querySelector("[name=csrfmiddlewaretoken]")?.value || "")}">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(getCsrfToken())}">
                         <button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Mark done</button>
                     </form>
                     <form method="post" action="/hospital/doctor/tasks/${task.id}/status/in_progress/" data-async-dashboard-form data-async-behavior="doctor-task-status">
-                        <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(document.querySelector("[name=csrfmiddlewaretoken]")?.value || "")}">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(getCsrfToken())}">
                         <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">In progress</button>
                     </form>
                 </div>
@@ -580,11 +592,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="text-secondary small mb-3">${escapeHtml(item.reason)}</div>
                     <div class="d-flex flex-wrap gap-2" data-referral-actions="${item.id}">
                         <form method="post" action="/hospital/doctor/referrals/${item.id}/status/accepted/" data-async-dashboard-form data-async-behavior="referral-status">
-                            <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(document.querySelector("[name=csrfmiddlewaretoken]")?.value || "")}">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(getCsrfToken())}">
                             <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Accept</button>
                         </form>
                         <form method="post" action="/hospital/doctor/referrals/${item.id}/status/responded/" data-async-dashboard-form data-async-behavior="referral-status">
-                            <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(document.querySelector("[name=csrfmiddlewaretoken]")?.value || "")}">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${escapeHtml(getCsrfToken())}">
                             <button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Mark responded</button>
                         </form>
                     </div>
@@ -626,7 +638,9 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll("select[data-autocomplete]").forEach(enhanceAutocompleteSelect);
         document.querySelectorAll("input[data-entity-search]").forEach(enhanceEntitySearchInput);
         applySmartFillRows();
+        initMetricSpotlights();
         initRotatingCardStacks();
+        initCopyCodeButtons();
         initBayafyaWatch();
         initAdmissionActionWorkspace();
         initAdmissionDependentSelectors();
@@ -643,23 +657,147 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function refreshCurrentPageLiveRootImpl() {
+    function replaceLivePageRootWithHtml(html, options = {}) {
+        const currentRoot = document.querySelector("[data-live-page-root]");
+        if (!currentRoot) return null;
+        const preserveScroll = options.preserveScroll !== false;
+        const scrollPosition = window.scrollY || 0;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const nextRoot = doc.querySelector("[data-live-page-root]");
+        if (!nextRoot) return null;
+        currentRoot.replaceWith(nextRoot);
+        rehydrateLivePageFeatures();
+        if (preserveScroll) {
+            window.requestAnimationFrame(() => {
+                window.scrollTo({ top: scrollPosition, behavior: "auto" });
+            });
+        }
+        return nextRoot;
+    }
+
+    let liveRootRefreshPending = false;
+    let liveRootRefreshRetryTimer = null;
+
+    function isFieldDirty(field) {
+        if (!(field instanceof HTMLElement) || field.disabled) return false;
+        if (field.matches("input[type='hidden'], input[type='submit'], input[type='button'], input[type='reset'], button")) {
+            return false;
+        }
+        if (field instanceof HTMLInputElement) {
+            if (field.type === "checkbox" || field.type === "radio") {
+                return field.checked !== field.defaultChecked;
+            }
+            if (field.type === "file") {
+                return field.files && field.files.length > 0;
+            }
+            return field.value !== field.defaultValue;
+        }
+        if (field instanceof HTMLTextAreaElement) {
+            return field.value !== field.defaultValue;
+        }
+        if (field instanceof HTMLSelectElement) {
+            return Array.from(field.options).some((option) => option.selected !== option.defaultSelected);
+        }
+        return false;
+    }
+
+    function isFormInteractionProtected(form) {
+        if (!(form instanceof HTMLFormElement)) return false;
+        if (form.dataset.liveRefreshAllow === "1") return false;
+        if (form.dataset.liveRefreshProtect === "0") return false;
+        if (form.matches("[data-async-context-form], [data-async-status-form]")) return false;
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement && form.contains(activeElement)) {
+            return true;
+        }
+        if (form.dataset.liveDirty === "1") {
+            return true;
+        }
+        return Array.from(form.elements || []).some((field) => isFieldDirty(field));
+    }
+
+    function hasProtectedLiveRefreshState(root) {
+        return Array.from(root.querySelectorAll("form")).some((form) => isFormInteractionProtected(form));
+    }
+
+    function syncFormDirtyState(form) {
+        if (!(form instanceof HTMLFormElement)) return;
+        if (Array.from(form.elements || []).some((field) => isFieldDirty(field))) {
+            form.dataset.liveDirty = "1";
+        } else {
+            delete form.dataset.liveDirty;
+        }
+    }
+
+    function queuePendingLiveRootRefresh() {
+        if (!liveRootRefreshPending || liveRootRefreshRetryTimer) return;
+        liveRootRefreshRetryTimer = window.setTimeout(async () => {
+            liveRootRefreshRetryTimer = null;
+            const root = document.querySelector("[data-live-page-root]");
+            if (!root || hasProtectedLiveRefreshState(root)) {
+                queuePendingLiveRootRefresh();
+                return;
+            }
+            if (typeof refreshCurrentPageLiveRoot === "function") {
+                await refreshCurrentPageLiveRoot();
+            }
+        }, 900);
+    }
+
+    document.addEventListener("input", (event) => {
+        const form = event.target instanceof HTMLElement ? event.target.closest("form") : null;
+        if (!form) return;
+        syncFormDirtyState(form);
+        queuePendingLiveRootRefresh();
+    });
+
+    document.addEventListener("change", (event) => {
+        const form = event.target instanceof HTMLElement ? event.target.closest("form") : null;
+        if (!form) return;
+        syncFormDirtyState(form);
+        queuePendingLiveRootRefresh();
+    });
+
+    document.addEventListener("focusout", (event) => {
+        const form = event.target instanceof HTMLElement ? event.target.closest("form") : null;
+        if (!form) return;
+        window.setTimeout(() => {
+            syncFormDirtyState(form);
+            queuePendingLiveRootRefresh();
+        }, 0);
+    });
+
+    document.addEventListener("reset", (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        window.setTimeout(() => {
+            delete form.dataset.liveDirty;
+            queuePendingLiveRootRefresh();
+        }, 0);
+    });
+
+    async function refreshCurrentPageLiveRootImpl(options = {}) {
         const root = document.querySelector("[data-live-page-root]");
         if (!root) return null;
+        const force = options === true || (typeof options === "object" && options?.force === true);
+        if (!force && hasProtectedLiveRefreshState(root)) {
+            liveRootRefreshPending = true;
+            queuePendingLiveRootRefresh();
+            return root;
+        }
         try {
+            liveRootRefreshPending = false;
+            if (liveRootRefreshRetryTimer) {
+                window.clearTimeout(liveRootRefreshRetryTimer);
+                liveRootRefreshRetryTimer = null;
+            }
             const scrollPosition = window.scrollY || 0;
             const response = await fetch(window.location.href, { headers: { "X-Requested-With": "XMLHttpRequest" } });
             if (!response.ok) return null;
             const html = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, "text/html");
-            const nextRoot = doc.querySelector("[data-live-page-root]");
+            const nextRoot = replaceLivePageRootWithHtml(html);
             if (!nextRoot) return null;
-            root.replaceWith(nextRoot);
-            rehydrateLivePageFeatures();
-            window.requestAnimationFrame(() => {
-                window.scrollTo({ top: scrollPosition, behavior: "auto" });
-            });
             return nextRoot;
         } catch (_) {
             return null;
@@ -2114,6 +2252,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 try {
                     const response = await fetch(`${url}?${params.toString()}`, {
                         headers: { "X-Requested-With": "XMLHttpRequest" },
+                        credentials: "same-origin",
                     });
                     if (!response.ok || token !== requestToken) return;
                     const payload = await response.json();
@@ -2164,6 +2303,110 @@ document.addEventListener("DOMContentLoaded", () => {
             searchInput?.addEventListener("input", scheduleSync);
             form.dataset.shiftStaffBound = "1";
             syncEligibleStaff();
+        });
+    }
+
+    function initCopyCodeButtons(root = document) {
+        root.querySelectorAll("[data-copy-code]").forEach((button) => {
+            if (button.dataset.copyCodeBound === "1") return;
+            button.dataset.copyCodeBound = "1";
+            button.addEventListener("click", async () => {
+                const value = button.dataset.copyCode || "";
+                if (!value) return;
+                try {
+                    await navigator.clipboard.writeText(value);
+                    appendToast(button.dataset.copyLabel || "Code", `${value} copied to clipboard.`, "success");
+                } catch (_) {
+                    appendToast(button.dataset.copyLabel || "Code", "Clipboard access is unavailable on this device.", "warning");
+                }
+            });
+        });
+    }
+
+    function buildMetricSpotlightCards(container) {
+        const entries = [];
+        const candidates = Array.from(container.children || []);
+        candidates.forEach((child, index) => {
+            const card = child.matches(".metric-card") ? child : child.querySelector(".metric-card");
+            if (!card) return;
+            const link = child.matches("a[href]") ? child : child.querySelector("a.metric-link[href], a[href]");
+            const labelNode = card.querySelector(".metric-label") || card.querySelector(".text-uppercase") || card.querySelector(".text-secondary.small");
+            const valueNode = card.querySelector("[data-live-metric]") || card.querySelector(".metric-value") || card.querySelector(".display-6");
+            const iconNode = card.querySelector(".metric-icon i");
+            entries.push({
+                id: `metric-${index}`,
+                label: labelNode?.textContent?.trim() || `Metric ${index + 1}`,
+                value: valueNode?.textContent?.trim() || "0",
+                metric: valueNode?.dataset?.liveMetric || "",
+                icon: iconNode?.className || "bi bi-bar-chart",
+                href: link?.getAttribute("href") || "",
+            });
+        });
+        return entries;
+    }
+
+    function renderMetricSpotlight(entry, active = false) {
+        const tag = entry.href ? "a" : "button";
+        const attrs = entry.href
+            ? `href="${escapeHtml(entry.href)}"`
+            : `type="button"`;
+        return `
+            <${tag} class="metric-spotlight-pill ${active ? "is-active" : ""}" ${attrs} data-metric-spotlight-pill data-spotlight-id="${escapeHtml(entry.id)}">
+                <span class="metric-spotlight-pill-icon"><i class="${escapeHtml(entry.icon)}"></i></span>
+                <span class="metric-spotlight-pill-copy">
+                    <span class="metric-spotlight-pill-label">${escapeHtml(entry.label)}</span>
+                    <span class="metric-spotlight-pill-value" ${entry.metric ? `data-live-metric="${escapeHtml(entry.metric)}"` : ""}>${escapeHtml(entry.value)}</span>
+                </span>
+            </${tag}>
+        `;
+    }
+
+    function initMetricSpotlights(root = document) {
+        const containers = root.querySelectorAll(".dashboard-grid.d-none.d-md-grid, .row.d-none.d-md-flex");
+        containers.forEach((container) => {
+            if (container.dataset.metricSpotlightBound === "1") return;
+            const entries = buildMetricSpotlightCards(container);
+            if (entries.length < 3) return;
+            container.dataset.metricSpotlightBound = "1";
+            container.classList.add("metric-spotlight-source");
+
+            const shell = document.createElement("section");
+            shell.className = "metric-spotlight d-none d-md-grid";
+            shell.innerHTML = `
+                <div class="metric-spotlight-main" data-metric-spotlight-main></div>
+                <div class="metric-spotlight-rail" data-metric-spotlight-rail></div>
+            `;
+
+            const main = shell.querySelector("[data-metric-spotlight-main]");
+            const rail = shell.querySelector("[data-metric-spotlight-rail]");
+            let activeIndex = 0;
+
+            const paint = () => {
+                const active = entries[activeIndex];
+                const mainTag = active.href ? "a" : "div";
+                const mainAttrs = active.href ? `href="${escapeHtml(active.href)}"` : "";
+                main.innerHTML = `
+                    <${mainTag} class="metric-spotlight-card" ${mainAttrs}>
+                        <div class="metric-spotlight-card-icon"><i class="${escapeHtml(active.icon)}"></i></div>
+                        <div class="metric-spotlight-card-copy">
+                            <div class="metric-spotlight-card-label">${escapeHtml(active.label)}</div>
+                            <div class="metric-spotlight-card-value" ${active.metric ? `data-live-metric="${escapeHtml(active.metric)}"` : ""}>${escapeHtml(active.value)}</div>
+                            <div class="metric-spotlight-card-note">Tap another metric pill to refocus this panel.</div>
+                        </div>
+                    </${mainTag}>
+                `;
+                rail.innerHTML = entries.map((entry, index) => renderMetricSpotlight(entry, index === activeIndex)).join("");
+                rail.querySelectorAll("[data-metric-spotlight-pill]").forEach((pill, index) => {
+                    if (entries[index].href) return;
+                    pill.addEventListener("click", () => {
+                        activeIndex = index;
+                        paint();
+                    });
+                });
+            };
+
+            container.insertAdjacentElement("afterend", shell);
+            paint();
         });
     }
 
@@ -2680,6 +2923,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     document.querySelectorAll("select[data-autocomplete]").forEach(enhanceAutocompleteSelect);
+    initMetricSpotlights();
     initShiftAssignmentStaffPicker();
     document.querySelectorAll("input[data-entity-search]").forEach(enhanceEntitySearchInput);
     document.querySelectorAll("[data-location-picker]").forEach(enhanceLocationPicker);
@@ -2694,6 +2938,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bindWalkInExistingPatientPrefill();
     enhanceScrollableLists();
     applySmartFillRows();
+    initCopyCodeButtons();
     initAdmissionDependentSelectors();
     initRotatingCardStacks();
     updateAssistantFabVisibility(false);
@@ -3071,8 +3316,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: "POST",
                     headers: {
                         "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value
+                        "X-CSRFToken": getCsrfToken(form)
                     },
+                    credentials: "same-origin",
                     body: new FormData(form)
                 });
                 if (!response.ok) {
@@ -3122,8 +3368,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: "POST",
                     headers: {
                         "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value
+                        "X-CSRFToken": getCsrfToken(form)
                     },
+                    credentials: "same-origin",
                     body: new FormData(form)
                 });
                 if (!response.ok) {
@@ -3149,8 +3396,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: "POST",
                     headers: {
                         "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]")?.value || ""
+                        "X-CSRFToken": getCsrfToken(form)
                     },
+                    credentials: "same-origin",
                     body: new FormData(form)
                 });
                 const payload = await response.json().catch(() => ({}));
@@ -3161,6 +3409,42 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 appendToast("Password updated", payload.message || "Please sign in again with your new password.", "success");
                 window.location.href = payload.redirect || "/login/";
+            });
+            return;
+        }
+
+        if (form.matches("[data-live-filter-form]")) {
+            event.preventDefault();
+            const submitter = event.submitter || form.querySelector("button[type='submit']");
+            const actionUrl = getFormActionUrl(form, window.location.pathname);
+            withBusyButton(submitter, "", async () => {
+                const url = new URL(actionUrl, window.location.origin);
+                const params = new URLSearchParams(new FormData(form));
+                params.forEach((value, key) => {
+                    if (value) {
+                        url.searchParams.set(key, value);
+                    } else {
+                        url.searchParams.delete(key);
+                    }
+                });
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    credentials: "same-origin",
+                });
+                if (!response.ok) {
+                    appendToast("Filter update failed", "The schedule window could not be refreshed right now.", "danger");
+                    return;
+                }
+                const html = await response.text().catch(() => "");
+                const swapped = html ? replaceLivePageRootWithHtml(html) : null;
+                if (!swapped) {
+                    window.location.href = url.toString();
+                    return;
+                }
+                window.history.replaceState({}, "", url.toString());
+                appendToast(platformName, "Schedule window updated.", "success");
             });
             return;
         }
@@ -3176,18 +3460,44 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: "POST",
                     headers: {
                         "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value
+                        "X-CSRFToken": getCsrfToken(form)
                     },
+                    credentials: "same-origin",
                     body: new FormData(form)
                 });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok || payload.ok === false) {
-                    showInlineFormErrors(form, payload.errors || {});
-                    if (behavior === "admission-action" && payload.html) {
-                        hydrateAdmissionDashboardHtml(payload.html);
+                const contentType = response.headers.get("content-type") || "";
+                const expectsJson = contentType.includes("application/json");
+                let payload = {};
+                let html = "";
+                if (expectsJson) {
+                    payload = await response.json().catch(() => ({}));
+                    if (!response.ok || payload.ok === false) {
+                        showInlineFormErrors(form, payload.errors || {});
+                        if (behavior === "admission-action" && payload.html) {
+                            hydrateAdmissionDashboardHtml(payload.html);
+                        }
+                        appendToast("Update failed", payload.message || "The dashboard action could not be completed.", "danger");
+                        return;
                     }
-                    appendToast("Update failed", payload.message || "The dashboard action could not be completed.", "danger");
-                    return;
+                } else {
+                    if (response.redirected && response.url && response.url !== window.location.href) {
+                        window.location.href = response.url;
+                        return;
+                    }
+                    html = await response.text().catch(() => "");
+                    const swapped = html ? replaceLivePageRootWithHtml(html) : null;
+                    if (!response.ok) {
+                        if (swapped) {
+                            appendToast("Update failed", "Please review the highlighted form fields and try again.", "danger");
+                            return;
+                        }
+                        appendToast("Update failed", "The dashboard action could not be completed.", "danger");
+                        return;
+                    }
+                    if (swapped) {
+                        appendToast(platformName, "Dashboard updated.", "success");
+                        return;
+                    }
                 }
 
                 if (behavior === "medical-record") {
@@ -3242,14 +3552,20 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 } else if (behavior === "admission-action") {
                     form.reset();
-                    const refreshed = await refreshAdmissionDashboardRoot();
-                    if (!refreshed) {
-                        window.location.reload();
-                        return;
-                    }
+                const refreshed = await refreshAdmissionDashboardRoot();
+                if (!refreshed) {
+                    window.location.reload();
+                    return;
+                }
                 } else if (behavior === "live-root-refresh") {
                     if (typeof refreshCurrentPageLiveRoot === "function") {
-                        const refreshed = await refreshCurrentPageLiveRoot();
+                        form.dataset.liveRefreshAllow = "1";
+                        let refreshed = null;
+                        try {
+                            refreshed = await refreshCurrentPageLiveRoot({ force: true });
+                        } finally {
+                            delete form.dataset.liveRefreshAllow;
+                        }
                         if (!refreshed) {
                             window.location.reload();
                             return;

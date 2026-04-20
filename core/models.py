@@ -31,6 +31,13 @@ class User(AbstractUser):
     email_verification_locked_until = models.DateTimeField(null=True, blank=True)
     email_verification_failed_count = models.PositiveSmallIntegerField(default=0)
     email_verification_failed_date = models.DateField(null=True, blank=True)
+    pending_hospital_invitation = models.ForeignKey(
+        "hospital.HospitalInvitation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pending_users",
+    )
 
     def __str__(self) -> str:
         return self.get_full_name() or self.username

@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from hospital.models import Appointment, Doctor, Hospital, HospitalAccess, Patient, WalkInEncounter
+from hospital.models import Appointment, Doctor, Hospital, HospitalAccess, HospitalInvitation, Patient, WalkInEncounter
 
 from .models import AssistantAccessGrant, Notification, User
 
@@ -78,6 +78,117 @@ class CoreTests(TestCase):
         user.refresh_from_db()
         self.assertIsNotNone(user.email_verified_at)
         self.assertEqual(user.email_verification_code, "")
+
+    def test_registration_invitation_is_redeemed_only_after_email_verification(self):
+        inviter = User.objects.create_user(
+            username="inviter",
+            password="SafePass123!",
+            role=User.Role.ADMIN,
+            email="inviter@example.com",
+            email_verified_at=timezone.now(),
+        )
+        hospital = Hospital.objects.create(name="Invite Hospital", code="invite-hospital", owner=inviter)
+        invitation = HospitalInvitation.objects.create(
+            hospital=hospital,
+            role=HospitalAccess.Role.DOCTOR,
+            code="DOC-INVITE-123",
+            created_by=inviter,
+            invitee_name="Asha Doctor",
+            invitee_email="asha@example.com",
+        )
+
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "ashadoctor",
+                "email": "asha@example.com",
+                "first_name": "Asha",
+                "last_name": "Doctor",
+                "phone": "+254700000011",
+                "address": "Nairobi",
+                "role": User.Role.DOCTOR,
+                "invitation_code": invitation.code,
+                "password": "SafePass123!",
+                "confirm_password": "SafePass123!",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "core/email_verification_sent.html")
+
+        user = User.objects.get(username="ashadoctor")
+        invitation.refresh_from_db()
+        self.assertEqual(user.pending_hospital_invitation_id, invitation.id)
+        self.assertFalse(HospitalAccess.objects.filter(user=user, hospital=hospital, role=HospitalAccess.Role.DOCTOR).exists())
+        self.assertTrue(invitation.is_active)
+        self.assertIsNone(invitation.redeemed_by)
+
+        response = self.client.post(
+            reverse("email_verification_confirm"),
+            {
+                "email": "asha@example.com",
+                "code": user.email_verification_code,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        user.refresh_from_db()
+        invitation.refresh_from_db()
+        access = HospitalAccess.objects.get(user=user, hospital=hospital, role=HospitalAccess.Role.DOCTOR)
+        self.assertEqual(access.status, HospitalAccess.Status.ACTIVE)
+        self.assertEqual(invitation.redeemed_by_id, user.id)
+        self.assertFalse(invitation.is_active)
+        self.assertIsNone(user.pending_hospital_invitation)
+
+    def test_unverified_user_redeem_keeps_invitation_pending_until_verification(self):
+        hospital = Hospital.objects.create(name="Redeem Hospital", code="redeem-hospital")
+        user = User.objects.create_user(
+            username="pendingredeem",
+            password="SafePass123!",
+            role=User.Role.NURSE,
+            email="pendingredeem@example.com",
+            first_name="Pending",
+            last_name="Redeem",
+            email_verification_code="1234567",
+            email_verification_sent_at=timezone.now(),
+        )
+        invitation = HospitalInvitation.objects.create(
+            hospital=hospital,
+            role=HospitalAccess.Role.NURSE,
+            code="NURSE-INVITE-123",
+            invitee_name="Pending Redeem",
+            invitee_email="pendingredeem@example.com",
+        )
+
+        self.client.login(username="pendingredeem", password="SafePass123!")
+        response = self.client.post(
+            reverse("redeem_hospital_access"),
+            {"invitation_code": invitation.code},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+        user.refresh_from_db()
+        invitation.refresh_from_db()
+        self.assertEqual(user.pending_hospital_invitation_id, invitation.id)
+        self.assertFalse(HospitalAccess.objects.filter(user=user, hospital=hospital, role=HospitalAccess.Role.NURSE).exists())
+        self.assertTrue(invitation.is_active)
+        self.assertIsNone(invitation.redeemed_by)
+
+        response = self.client.post(
+            reverse("email_verification_confirm"),
+            {
+                "email": "pendingredeem@example.com",
+                "code": user.email_verification_code,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        user.refresh_from_db()
+        invitation.refresh_from_db()
+        self.assertTrue(HospitalAccess.objects.filter(user=user, hospital=hospital, role=HospitalAccess.Role.NURSE).exists())
+        self.assertEqual(invitation.redeemed_by_id, user.id)
+        self.assertFalse(invitation.is_active)
+        self.assertIsNone(user.pending_hospital_invitation)
 
     def test_email_verification_locks_after_three_wrong_attempts(self):
         user = User.objects.create_user(

@@ -484,7 +484,7 @@
         <div class="card p-4 mb-4">
             <span class="section-kicker">Continuity of care</span>
             <h3 class="h4 mt-3">Advance directives</h3>
-            <form method="post" action="{% url 'hospital:create_advance_directive' %}" enctype="multipart/form-data" class="stacked-form mb-4">
+            <form method="post" action="{% url 'hospital:create_advance_directive' %}" enctype="multipart/form-data" class="stacked-form mb-4" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 {% for field in directive_form %}
                 <div class="mb-3">
@@ -511,7 +511,7 @@
         <div class="card p-4 mb-4">
             <span class="section-kicker">Family and caregiver access</span>
             <h3 class="h4 mt-3">Shared updates with consent</h3>
-            <form method="post" action="{% url 'hospital:create_caregiver_access' %}" class="stacked-form mb-4">
+            <form method="post" action="{% url 'hospital:create_caregiver_access' %}" class="stacked-form mb-4" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 {% for field in caregiver_form %}
                 <div class="mb-3">
@@ -537,7 +537,7 @@
         <div class="card p-4">
             <span class="section-kicker">Feedback</span>
             <h3 class="h4 mt-3">Quality and satisfaction</h3>
-            <form method="post" action="{% url 'hospital:submit_patient_feedback' %}" class="stacked-form mb-4">
+            <form method="post" action="{% url 'hospital:submit_patient_feedback' %}" class="stacked-form mb-4" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 {% for field in feedback_form %}
                 <div class="mb-3">

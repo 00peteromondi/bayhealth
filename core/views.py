@@ -1109,6 +1109,50 @@ def _invite_welcome_modal(invitation, user):
     }
 
 
+def _complete_invitation_redemption(*, invitation, user, request, make_primary):
+    if not invitation:
+        return None
+    if invitation.expires_at and invitation.expires_at < timezone.now():
+        user.pending_hospital_invitation = None
+        user.save(update_fields=["pending_hospital_invitation"])
+        return None
+    if not invitation.is_active:
+        user.pending_hospital_invitation = None
+        user.save(update_fields=["pending_hospital_invitation"])
+        return None
+    HospitalAccess.objects.update_or_create(
+        user=user,
+        hospital=invitation.hospital,
+        role=invitation.role,
+        defaults={
+            "is_primary": make_primary,
+            "can_switch": True,
+            "status": HospitalAccess.Status.ACTIVE,
+        },
+    )
+    request.session["current_hospital_id"] = invitation.hospital_id
+    request.session["invite_welcome_modal"] = _invite_welcome_modal(invitation, user)
+    _notify_hospital_admins(
+        invitation.hospital,
+        "Invitation redeemed",
+        f"{user.get_full_name() or user.username} activated access for {invitation.hospital.name}.",
+        exclude_user=user,
+    )
+    if invitation.created_by and invitation.created_by != user:
+        Notification.objects.create(
+            user=invitation.created_by,
+            title="Invitation activated",
+            message=f"{user.get_full_name() or user.username} redeemed your invitation for {invitation.hospital.name}.",
+        )
+    invitation.redeemed_by = user
+    invitation.redeemed_at = timezone.now()
+    invitation.is_active = False
+    invitation.save(update_fields=["redeemed_by", "redeemed_at", "is_active"])
+    user.pending_hospital_invitation = None
+    user.save(update_fields=["pending_hospital_invitation"])
+    return invitation
+
+
 def _current_hospital_access(request):
     accesses = list(
         HospitalAccess.objects.select_related("hospital").filter(
@@ -1408,33 +1452,8 @@ def register(request):
                 )
                 request.session["current_hospital_id"] = hospital.id
             elif invitation:
-                HospitalAccess.objects.update_or_create(
-                    user=user,
-                    hospital=invitation.hospital,
-                    role=invitation.role,
-                    defaults={
-                        "is_primary": True,
-                        "can_switch": True,
-                        "status": HospitalAccess.Status.ACTIVE,
-                    },
-                )
-                _notify_hospital_admins(
-                    invitation.hospital,
-                    "Invitation redeemed",
-                    f"{user.get_full_name() or user.username} activated access for {invitation.hospital.name}.",
-                    exclude_user=user,
-                )
-                if invitation.created_by and invitation.created_by != user:
-                    Notification.objects.create(
-                        user=invitation.created_by,
-                        title="Invitation activated",
-                        message=f"{user.get_full_name() or user.username} joined {invitation.hospital.name} using your invitation code.",
-                    )
-                invitation.redeemed_by = user
-                invitation.redeemed_at = timezone.now()
-                invitation.is_active = False
-                invitation.save(update_fields=["redeemed_by", "redeemed_at", "is_active"])
-                request.session["current_hospital_id"] = invitation.hospital_id
+                user.pending_hospital_invitation = invitation
+                user.save(update_fields=["pending_hospital_invitation"])
             try:
                 _send_email_verification(request, user)
             except ValidationError as exc:
@@ -1461,9 +1480,8 @@ def register(request):
 
 @require_http_methods(["GET", "POST"])
 def resend_email_verification(request):
-    redirect_response = _redirect_authenticated_user(request)
-    if redirect_response is not None:
-        return redirect_response
+    if request.user.is_authenticated and request.user.email_verified_at:
+        return redirect(_authenticated_entry_redirect())
     initial_email = ""
     if request.user.is_authenticated and getattr(request.user, "email", ""):
         initial_email = request.user.email
@@ -1502,9 +1520,8 @@ def resend_email_verification(request):
 
 @require_http_methods(["GET", "POST"])
 def verify_email(request):
-    redirect_response = _redirect_authenticated_user(request)
-    if redirect_response is not None:
-        return redirect_response
+    if request.user.is_authenticated and request.user.email_verified_at:
+        return redirect(_authenticated_entry_redirect())
     initial_email = request.GET.get("email", "").strip()
     form = StyledEmailVerificationCodeForm(request.POST or None, initial={"email": initial_email})
     is_async = request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -1562,7 +1579,20 @@ def verify_email(request):
                     "email_verification_failed_date",
                 ]
             )
-            invitation = HospitalInvitation.objects.filter(redeemed_by=user).order_by("-redeemed_at").first()
+            invitation = getattr(user, "pending_hospital_invitation", None)
+            if invitation and invitation.is_active:
+                invitation = _complete_invitation_redemption(
+                    invitation=invitation,
+                    user=user,
+                    request=request,
+                    make_primary=True,
+                )
+            elif invitation:
+                user.pending_hospital_invitation = None
+                user.save(update_fields=["pending_hospital_invitation"])
+                invitation = None
+            if invitation is None:
+                invitation = HospitalInvitation.objects.filter(redeemed_by=user).order_by("-redeemed_at").first()
             if invitation:
                 request.session["invite_welcome_modal"] = _invite_welcome_modal(invitation, user)
             messages.success(request, "Your email address has been verified. You can now sign in.")
@@ -1662,31 +1692,29 @@ def redeem_hospital_access(request):
                 "This authorization code could not be activated because the name does not match the invitation record.",
             )
             return redirect("profile")
-        HospitalAccess.objects.update_or_create(
-            user=request.user,
-            hospital=invitation.hospital,
-            role=invitation.role,
-            defaults={"is_primary": False, "status": HospitalAccess.Status.ACTIVE},
-        )
-        request.session["current_hospital_id"] = invitation.hospital_id
-        request.session["invite_welcome_modal"] = _invite_welcome_modal(invitation, request.user)
-        _notify_hospital_admins(
-            invitation.hospital,
-            "Invitation redeemed",
-            f"{request.user.get_full_name() or request.user.username} activated access in {invitation.hospital.name}.",
-            exclude_user=request.user,
-        )
-        if invitation.created_by and invitation.created_by != request.user:
-            Notification.objects.create(
-                user=invitation.created_by,
-                title="Invitation activated",
-                message=f"{request.user.get_full_name() or request.user.username} redeemed your invitation for {invitation.hospital.name}.",
+        if request.user.email_verified_at:
+            invitation = _complete_invitation_redemption(
+                invitation=invitation,
+                user=request.user,
+                request=request,
+                make_primary=False,
             )
-        invitation.redeemed_by = request.user
-        invitation.redeemed_at = timezone.now()
-        invitation.is_active = False
-        invitation.save(update_fields=["redeemed_by", "redeemed_at", "is_active"])
-        messages.success(request, f"Access granted for {invitation.hospital.name}.")
+            if not invitation:
+                messages.error(request, "This authorization code is no longer available.")
+                return redirect("profile")
+            messages.success(request, f"Access granted for {invitation.hospital.name}.")
+            return redirect("profile")
+        request.user.pending_hospital_invitation = invitation
+        request.user.save(update_fields=["pending_hospital_invitation"])
+        try:
+            _send_email_verification(request, request.user)
+        except ValidationError as exc:
+            messages.warning(request, exc.message)
+            return redirect("profile")
+        messages.info(
+            request,
+            "Your authorization code is valid. Please verify your email to finish activating hospital access.",
+        )
         return redirect("profile")
     messages.error(request, "Enter a valid authorization code.")
     return redirect("profile")

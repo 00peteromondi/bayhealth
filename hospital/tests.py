@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from core.models import User
 
-from .models import AdvanceDirective, Appointment, CaregiverAccess, ConditionCatalog, Doctor, Hospital, HospitalAccess, LabTestRequest, MedicalRecord, Patient, PatientCondition, PatientFeedback, PharmacyTask, WalkInEncounter
+from .models import AdvanceDirective, Allergy, Appointment, CaregiverAccess, ChronicCondition, ConditionCatalog, Doctor, FamilyMedicalHistory, Hospital, HospitalAccess, HospitalInvitation, Immunization, LabTestRequest, MedicalRecord, Patient, PatientCondition, PatientFeedback, PharmacyTask, WalkInEncounter
 
 
 class HospitalTests(TestCase):
@@ -191,3 +191,139 @@ class HospitalTests(TestCase):
         )
         self.assertRedirects(response, reverse("hospital:dashboard"))
         self.assertEqual(PatientFeedback.objects.count(), 1)
+
+    def test_clinical_user_can_add_extended_patient_records(self):
+        hospital = Hospital.objects.create(name="Extension Hospital", code="extension-hospital", owner=self.doctor_user)
+        self.doctor.hospital = hospital
+        self.doctor.save()
+        patient = Patient.objects.get(user=self.patient_user)
+        patient.hospital = hospital
+        patient.save()
+        HospitalAccess.objects.create(user=self.patient_user, hospital=hospital, role=HospitalAccess.Role.PATIENT, is_primary=True)
+        HospitalAccess.objects.create(user=self.doctor_user, hospital=hospital, role=HospitalAccess.Role.DOCTOR, is_primary=True)
+
+        self.client.login(username="doctor", password="SafePass123!")
+        session = self.client.session
+        session["current_hospital_id"] = hospital.id
+        session.save()
+
+        response = self.client.post(
+            reverse("hospital:create_allergy", args=[patient.id]),
+            {
+                "allergen": "Penicillin",
+                "reaction_type": "Rash",
+                "severity": "moderate",
+                "notes": "Avoid beta-lactam antibiotics where possible.",
+            },
+        )
+        self.assertRedirects(response, reverse("hospital:patient_detail", args=[patient.id]))
+        self.assertEqual(Allergy.objects.filter(patient=patient).count(), 1)
+
+        response = self.client.post(
+            reverse("hospital:create_immunization", args=[patient.id]),
+            {
+                "vaccine_name": "Tetanus booster",
+                "dose_number": "Booster",
+                "administered_on": timezone.localdate(),
+                "notes": "Routine update.",
+            },
+        )
+        self.assertRedirects(response, reverse("hospital:patient_detail", args=[patient.id]))
+        self.assertEqual(Immunization.objects.filter(patient=patient).count(), 1)
+
+        response = self.client.post(
+            reverse("hospital:create_chronic_condition", args=[patient.id]),
+            {
+                "name": "Hypertension",
+                "primary_doctor": self.doctor.pk,
+                "status": "active",
+                "management_plan": "Blood pressure checks and medication adherence review.",
+            },
+        )
+        self.assertRedirects(response, reverse("hospital:patient_detail", args=[patient.id]))
+        self.assertEqual(ChronicCondition.objects.filter(patient=patient).count(), 1)
+
+        response = self.client.post(
+            reverse("hospital:create_family_history", args=[patient.id]),
+            {
+                "condition_name": "Diabetes mellitus",
+                "relative": "Mother",
+                "relationship": "First-degree relative",
+                "notes": "Diagnosed in mid-life.",
+            },
+        )
+        self.assertRedirects(response, reverse("hospital:patient_detail", args=[patient.id]))
+        self.assertEqual(FamilyMedicalHistory.objects.filter(patient=patient).count(), 1)
+
+    def test_duplicate_active_invitation_is_blocked_for_same_email_and_role(self):
+        hospital = Hospital.objects.create(name="Invite Guard Hospital", code="invite-guard-hospital", owner=self.doctor_user)
+        HospitalAccess.objects.create(user=self.doctor_user, hospital=hospital, role=HospitalAccess.Role.OWNER, is_primary=True)
+        HospitalInvitation.objects.create(
+            hospital=hospital,
+            role=HospitalAccess.Role.DOCTOR,
+            code="DOC-LOCK-001",
+            created_by=self.doctor_user,
+            invitee_name="Asha Doctor",
+            invitee_email="asha@example.com",
+        )
+
+        self.client.login(username="doctor", password="SafePass123!")
+        session = self.client.session
+        session["current_hospital_id"] = hospital.id
+        session.save()
+
+        response = self.client.post(
+            reverse("hospital:create_invitation"),
+            {
+                "role": HospitalAccess.Role.DOCTOR,
+                "invitee_name": "Asha Doctor",
+                "invitee_email": "asha@example.com",
+                "note": "Duplicate should be blocked.",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload["ok"])
+        self.assertIn("already exists", payload["message"])
+        self.assertEqual(HospitalInvitation.objects.filter(hospital=hospital).count(), 1)
+
+    def test_invitation_can_be_revoked_and_reactivated_without_redeeming(self):
+        hospital = Hospital.objects.create(name="Manage Invite Hospital", code="manage-invite-hospital", owner=self.doctor_user)
+        HospitalAccess.objects.create(user=self.doctor_user, hospital=hospital, role=HospitalAccess.Role.OWNER, is_primary=True)
+        invitation = HospitalInvitation.objects.create(
+            hospital=hospital,
+            role=HospitalAccess.Role.NURSE,
+            code="NURSE-OPEN-01",
+            created_by=self.doctor_user,
+            invitee_name="Pending Nurse",
+            invitee_email="pending.nurse@example.com",
+        )
+
+        self.client.login(username="doctor", password="SafePass123!")
+        session = self.client.session
+        session["current_hospital_id"] = hospital.id
+        session.save()
+
+        revoke_response = self.client.post(
+            reverse("hospital:manage_invitation", args=[invitation.id]),
+            {"action": "revoke"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(revoke_response.status_code, 200)
+        invitation.refresh_from_db()
+        self.assertFalse(invitation.is_active)
+        self.assertEqual(invitation.revoked_by_id, self.doctor_user.id)
+        self.assertIsNotNone(invitation.revoked_at)
+
+        reactivate_response = self.client.post(
+            reverse("hospital:manage_invitation", args=[invitation.id]),
+            {"action": "reactivate"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(reactivate_response.status_code, 200)
+        invitation.refresh_from_db()
+        self.assertTrue(invitation.is_active)
+        self.assertIsNone(invitation.revoked_by)
+        self.assertIsNone(invitation.revoked_at)

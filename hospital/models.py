@@ -88,6 +88,10 @@ class HospitalInvitation(models.Model):
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="redeemed_invitations"
     )
     redeemed_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="revoked_invitations"
+    )
+    revoked_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -238,11 +242,34 @@ class Ward(models.Model):
 
 
 class Bed(models.Model):
+    class OccupancyStatus(models.TextChoices):
+        AVAILABLE = "available", "Available"
+        OCCUPIED = "occupied", "Occupied"
+        RESERVED = "reserved", "Reserved"
+        OUT_OF_SERVICE = "out_of_service", "Out of service"
+
+    class SanitizationState(models.TextChoices):
+        CLEAN = "clean", "Clean"
+        NEEDS_CLEANING = "needs_cleaning", "Needs cleaning"
+        IN_PROGRESS = "in_progress", "Cleaning in progress"
+        ISOLATION_CLEANING = "isolation_cleaning", "Isolation cleaning"
+
     hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name="beds", null=True, blank=True)
     ward = models.ForeignKey(Ward, on_delete=models.CASCADE, related_name="beds")
     bed_number = models.CharField(max_length=30)
     is_isolation = models.BooleanField(default=False)
     is_occupied = models.BooleanField(default=False)
+    occupancy_status = models.CharField(
+        max_length=20,
+        choices=OccupancyStatus.choices,
+        default=OccupancyStatus.AVAILABLE,
+    )
+    sanitization_state = models.CharField(
+        max_length=24,
+        choices=SanitizationState.choices,
+        default=SanitizationState.CLEAN,
+    )
+    last_cleaned_at = models.DateTimeField(null=True, blank=True)
     current_patient = models.ForeignKey(
         Patient, on_delete=models.SET_NULL, null=True, blank=True, related_name="occupied_beds"
     )
@@ -252,6 +279,13 @@ class Bed(models.Model):
 
     def __str__(self) -> str:
         return f"{self.ward.name} - Bed {self.bed_number}"
+
+    def save(self, *args, **kwargs):
+        if self.is_occupied and self.occupancy_status == self.OccupancyStatus.AVAILABLE:
+            self.occupancy_status = self.OccupancyStatus.OCCUPIED
+        if not self.is_occupied and self.occupancy_status == self.OccupancyStatus.OCCUPIED:
+            self.occupancy_status = self.OccupancyStatus.AVAILABLE
+        super().save(*args, **kwargs)
 
 
 class Admission(models.Model):
@@ -572,6 +606,164 @@ class LabTestResult(models.Model):
     completed_at = models.DateTimeField(auto_now_add=True)
 
 
+class Allergy(models.Model):
+    class Severity(models.TextChoices):
+        MILD = "mild", "Mild"
+        MODERATE = "moderate", "Moderate"
+        SEVERE = "severe", "Severe"
+        LIFE_THREATENING = "life_threatening", "Life threatening"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="allergies")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="allergies")
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="recorded_allergies")
+    allergen = models.CharField(max_length=160)
+    reaction_type = models.CharField(max_length=160, blank=True)
+    severity = models.CharField(max_length=20, choices=Severity.choices, default=Severity.MODERATE)
+    notes = models.TextField(blank=True)
+    identified_at = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["patient", "is_active", "severity"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.patient} allergy - {self.allergen}"
+
+
+class Immunization(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="immunizations")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="immunizations")
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="recorded_immunizations")
+    vaccine_name = models.CharField(max_length=180)
+    administered_on = models.DateField()
+    batch_number = models.CharField(max_length=80, blank=True)
+    manufacturer = models.CharField(max_length=120, blank=True)
+    dose_number = models.CharField(max_length=40, blank=True)
+    next_due_on = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-administered_on", "-created_at"]
+        indexes = [
+            models.Index(fields=["patient", "administered_on"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.patient} - {self.vaccine_name}"
+
+
+class ChronicCondition(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        STABLE = "stable", "Stable"
+        RESOLVED = "resolved", "Resolved"
+        MONITORING = "monitoring", "Monitoring"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="chronic_conditions")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="chronic_conditions")
+    condition = models.ForeignKey("ConditionCatalog", on_delete=models.SET_NULL, null=True, blank=True, related_name="chronic_condition_records")
+    primary_doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name="managed_chronic_conditions")
+    name = models.CharField(max_length=180)
+    onset_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    management_plan = models.TextField(blank=True)
+    monitoring_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["status", "-updated_at"]
+        indexes = [
+            models.Index(fields=["patient", "status"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.name and self.condition_id:
+            self.name = self.condition.name
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.patient} chronic condition - {self.name}"
+
+
+class FamilyMedicalHistory(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="family_history_records")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="family_history_records")
+    condition = models.ForeignKey("ConditionCatalog", on_delete=models.SET_NULL, null=True, blank=True, related_name="family_history_links")
+    relative = models.CharField(max_length=120)
+    relationship = models.CharField(max_length=80, blank=True)
+    condition_name = models.CharField(max_length=180)
+    age_at_onset = models.PositiveIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-recorded_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.condition_name and self.condition_id:
+            self.condition_name = self.condition.name
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.patient} family history - {self.condition_name}"
+
+
+class SurgicalHistory(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="surgical_history_entries")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="surgical_history_entries")
+    documented_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="documented_surgical_history_entries")
+    procedure_name = models.CharField(max_length=180)
+    procedure_date = models.DateField(null=True, blank=True)
+    surgeon_name = models.CharField(max_length=160, blank=True)
+    facility_name = models.CharField(max_length=160, blank=True)
+    outcome = models.TextField(blank=True)
+    complications = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-procedure_date", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} surgical history - {self.procedure_name}"
+
+
+class ConsentForm(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SIGNED = "signed", "Signed"
+        REVOKED = "revoked", "Revoked"
+        EXPIRED = "expired", "Expired"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="consent_forms")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="consent_forms")
+    surgical_case = models.ForeignKey("SurgicalCase", on_delete=models.SET_NULL, null=True, blank=True, related_name="consent_forms")
+    medical_record = models.ForeignKey("MedicalRecord", on_delete=models.SET_NULL, null=True, blank=True, related_name="consent_forms")
+    title = models.CharField(max_length=180)
+    procedure_name = models.CharField(max_length=180, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    document = models.FileField(upload_to="consent-forms/", blank=True, null=True)
+    signed_by_name = models.CharField(max_length=160, blank=True)
+    signed_relationship = models.CharField(max_length=120, blank=True)
+    witnessed_by = models.CharField(max_length=160, blank=True)
+    signed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} consent - {self.title}"
+
+
 class AuditEvent(models.Model):
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     action = models.CharField(max_length=120)
@@ -865,6 +1057,69 @@ class PatientFeedback(models.Model):
         return f"{self.patient} feedback"
 
 
+class DocumentCategory(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Document(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="documents")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents")
+    category = models.ForeignKey(DocumentCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents")
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents")
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_documents")
+    title = models.CharField(max_length=180)
+    file = models.FileField(upload_to="patient-documents/")
+    summary = models.TextField(blank=True)
+    is_sensitive = models.BooleanField(default=False)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+        indexes = [
+            models.Index(fields=["patient", "uploaded_at"]),
+            models.Index(fields=["hospital", "category"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class MedicalImage(models.Model):
+    class Modality(models.TextChoices):
+        XRAY = "xray", "X-ray"
+        CT = "ct", "CT"
+        MRI = "mri", "MRI"
+        ULTRASOUND = "ultrasound", "Ultrasound"
+        ECG = "ecg", "ECG"
+        OTHER = "other", "Other"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="medical_images")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="medical_images")
+    linked_document = models.ForeignKey(Document, on_delete=models.SET_NULL, null=True, blank=True, related_name="medical_images")
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_medical_images")
+    title = models.CharField(max_length=180)
+    modality = models.CharField(max_length=20, choices=Modality.choices, default=Modality.OTHER)
+    image = models.FileField(upload_to="medical-images/")
+    dicom_identifier = models.CharField(max_length=120, blank=True)
+    study_uid = models.CharField(max_length=160, blank=True)
+    notes = models.TextField(blank=True)
+    captured_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-captured_at", "-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
 class PharmacyTask(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -892,6 +1147,87 @@ class PharmacyTask(models.Model):
 
     def __str__(self) -> str:
         return f"{self.patient} pharmacy task"
+
+
+class MedicationAdministrationRecord(models.Model):
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        ADMINISTERED = "administered", "Administered"
+        HELD = "held", "Held"
+        MISSED = "missed", "Missed"
+        REFUSED = "refused", "Refused"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="medication_administration_records")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="medication_administration_records")
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name="medication_administration_records")
+    pharmacy_task = models.ForeignKey(PharmacyTask, on_delete=models.SET_NULL, null=True, blank=True, related_name="medication_administration_records")
+    administered_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="administered_medications")
+    medication_name = models.CharField(max_length=180)
+    dose = models.CharField(max_length=120, blank=True)
+    route = models.CharField(max_length=80, blank=True)
+    scheduled_for = models.DateTimeField()
+    administered_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-scheduled_for", "-created_at"]
+        indexes = [
+            models.Index(fields=["patient", "scheduled_for", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.patient} MAR - {self.medication_name}"
+
+
+class LabPanel(models.Model):
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="lab_panels")
+    name = models.CharField(max_length=180)
+    code = models.CharField(max_length=40, blank=True)
+    description = models.TextField(blank=True)
+    tests = models.TextField(help_text="Comma-separated test names in this panel.")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("hospital", "name")
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Specimen(models.Model):
+    class SampleType(models.TextChoices):
+        BLOOD = "blood", "Blood"
+        URINE = "urine", "Urine"
+        STOOL = "stool", "Stool"
+        SWAB = "swab", "Swab"
+        TISSUE = "tissue", "Tissue"
+        OTHER = "other", "Other"
+
+    class ChainStatus(models.TextChoices):
+        COLLECTED = "collected", "Collected"
+        TRANSFERRED = "transferred", "Transferred"
+        RECEIVED = "received", "Received"
+        PROCESSING = "processing", "Processing"
+        STORED = "stored", "Stored"
+        DISPOSED = "disposed", "Disposed"
+
+    request = models.ForeignKey(LabTestRequest, on_delete=models.CASCADE, related_name="specimens")
+    collected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="collected_specimens")
+    sample_type = models.CharField(max_length=20, choices=SampleType.choices, default=SampleType.BLOOD)
+    identifier = models.CharField(max_length=80, unique=True)
+    chain_status = models.CharField(max_length=20, choices=ChainStatus.choices, default=ChainStatus.COLLECTED)
+    collected_at = models.DateTimeField()
+    received_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-collected_at"]
+
+    def __str__(self) -> str:
+        return self.identifier
 
 
 class ConditionCatalog(models.Model):
@@ -970,6 +1306,101 @@ class OperatingRoom(models.Model):
         return self.name or f"OR {self.room_number}"
 
 
+class Room(models.Model):
+    class RoomType(models.TextChoices):
+        CONSULTATION = "consultation", "Consultation"
+        WARD = "ward", "Ward"
+        OPERATING_THEATRE = "operating_theatre", "Operating theatre"
+        LAB = "lab", "Laboratory"
+        IMAGING = "imaging", "Imaging"
+        PHARMACY = "pharmacy", "Pharmacy"
+        ADMIN = "admin", "Administration"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        AVAILABLE = "available", "Available"
+        OCCUPIED = "occupied", "Occupied"
+        CLEANING = "cleaning", "Cleaning"
+        MAINTENANCE = "maintenance", "Maintenance"
+
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name="rooms")
+    ward = models.ForeignKey(Ward, on_delete=models.SET_NULL, null=True, blank=True, related_name="rooms")
+    room_number = models.CharField(max_length=30)
+    name = models.CharField(max_length=120, blank=True)
+    room_type = models.CharField(max_length=30, choices=RoomType.choices, default=RoomType.OTHER)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.AVAILABLE)
+    floor = models.CharField(max_length=30, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ("hospital", "room_number")
+        ordering = ["room_number"]
+
+    def __str__(self) -> str:
+        return self.name or f"{self.get_room_type_display()} {self.room_number}"
+
+
+class Equipment(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        IN_USE = "in_use", "In use"
+        MAINTENANCE = "maintenance", "Maintenance"
+        RETIRED = "retired", "Retired"
+
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name="equipment_items")
+    serial_number = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=180)
+    category = models.CharField(max_length=120, blank=True)
+    manufacturer = models.CharField(max_length=120, blank=True)
+    model_number = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    purchased_on = models.DateField(null=True, blank=True)
+    maintenance_interval_days = models.PositiveIntegerField(default=180)
+    next_maintenance_due_on = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.serial_number})"
+
+
+class MaintenanceLog(models.Model):
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name="maintenance_logs")
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="equipment_maintenance_logs")
+    summary = models.TextField()
+    service_date = models.DateField()
+    next_due_on = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-service_date", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.equipment} maintenance on {self.service_date}"
+
+
+class AssetAssignment(models.Model):
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name="assignments")
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="asset_assignments")
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="asset_assignments")
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-assigned_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["equipment"], condition=models.Q(is_active=True), name="unique_active_equipment_assignment"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.equipment} -> {self.room}"
+
+
 class SurgicalCase(models.Model):
     class Status(models.TextChoices):
         SCHEDULED = "scheduled", "Scheduled"
@@ -1027,3 +1458,363 @@ class SurgicalCase(models.Model):
             self.scheduled_end = self.scheduled_start + timedelta(minutes=self.estimated_duration_minutes)
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class AnesthesiaRecord(models.Model):
+    surgical_case = models.OneToOneField(SurgicalCase, on_delete=models.CASCADE, related_name="anesthesia_record")
+    anesthetist = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="anesthesia_records")
+    anesthesia_type = models.CharField(max_length=120)
+    dosage_summary = models.TextField(blank=True)
+    airway_notes = models.TextField(blank=True)
+    complications = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Anesthesia - {self.surgical_case}"
+
+
+class SurgicalTeamMember(models.Model):
+    class Role(models.TextChoices):
+        SURGEON = "surgeon", "Surgeon"
+        ASSISTANT = "assistant", "Assistant"
+        ANESTHETIST = "anesthetist", "Anesthetist"
+        SCRUB_NURSE = "scrub_nurse", "Scrub nurse"
+        CIRCULATING_NURSE = "circulating_nurse", "Circulating nurse"
+        OTHER = "other", "Other"
+
+    surgical_case = models.ForeignKey(SurgicalCase, on_delete=models.CASCADE, related_name="team_members")
+    member = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="surgical_team_roles")
+    display_name = models.CharField(max_length=160, blank=True)
+    role = models.CharField(max_length=30, choices=Role.choices, default=Role.OTHER)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["role", "id"]
+
+    def __str__(self) -> str:
+        return self.display_name or (self.member.get_full_name() if self.member_id else self.get_role_display())
+
+
+class MaternityRecord(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="maternity_records")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="maternity_records")
+    primary_doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name="maternity_records")
+    gravida = models.PositiveSmallIntegerField(default=1)
+    para = models.PositiveSmallIntegerField(default=0)
+    last_menstrual_period = models.DateField(null=True, blank=True)
+    estimated_delivery_date = models.DateField(null=True, blank=True)
+    risk_notes = models.TextField(blank=True)
+    antenatal_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} maternity record"
+
+
+class NeonatalRecord(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="neonatal_records")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="neonatal_records")
+    maternity_record = models.ForeignKey(MaternityRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name="neonatal_records")
+    birth_weight_kg = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    gestational_age_weeks = models.PositiveSmallIntegerField(null=True, blank=True)
+    apgar_score_1_min = models.PositiveSmallIntegerField(null=True, blank=True)
+    apgar_score_5_min = models.PositiveSmallIntegerField(null=True, blank=True)
+    delivery_notes = models.TextField(blank=True)
+    neonatal_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} neonatal record"
+
+
+class PediatricGrowthChart(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="growth_chart_entries")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="growth_chart_entries")
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="recorded_growth_chart_entries")
+    recorded_on = models.DateField()
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    height_cm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    head_circumference_cm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-recorded_on", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} growth chart on {self.recorded_on}"
+
+
+class MentalHealthRecord(models.Model):
+    class AccessLevel(models.TextChoices):
+        CLINICAL_TEAM = "clinical_team", "Clinical team"
+        COUNSELOR_ONLY = "counselor_only", "Counselor only"
+        HIGHLY_RESTRICTED = "highly_restricted", "Highly restricted"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="mental_health_records")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="mental_health_records")
+    counselor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="mental_health_records")
+    session_date = models.DateField()
+    assessment_summary = models.TextField()
+    care_plan = models.TextField(blank=True)
+    risk_flags = models.TextField(blank=True)
+    access_level = models.CharField(max_length=24, choices=AccessLevel.choices, default=AccessLevel.COUNSELOR_ONLY)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-session_date", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} mental health record"
+
+
+class OutcomeTracking(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="outcomes")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="outcomes")
+    admission = models.ForeignKey(Admission, on_delete=models.SET_NULL, null=True, blank=True, related_name="outcomes")
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name="outcomes")
+    outcome_summary = models.TextField()
+    recovery_status = models.CharField(max_length=120, blank=True)
+    readmitted_within_30_days = models.BooleanField(default=False)
+    follow_up_required = models.BooleanField(default=False)
+    measured_at = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-measured_at", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} outcome on {self.measured_at}"
+
+
+class GeneratedReport(models.Model):
+    class ReportType(models.TextChoices):
+        FINANCIAL = "financial", "Financial"
+        CLINICAL = "clinical", "Clinical"
+        OPERATIONAL = "operational", "Operational"
+        COMPLIANCE = "compliance", "Compliance"
+
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="generated_reports")
+    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="generated_reports")
+    report_type = models.CharField(max_length=20, choices=ReportType.choices, default=ReportType.OPERATIONAL)
+    title = models.CharField(max_length=180)
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    file = models.FileField(upload_to="reports/", blank=True, null=True)
+    summary = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class InteroperabilityMessageLog(models.Model):
+    class Standard(models.TextChoices):
+        HL7 = "hl7", "HL7"
+        FHIR = "fhir", "FHIR"
+        OTHER = "other", "Other"
+
+    class Direction(models.TextChoices):
+        INBOUND = "inbound", "Inbound"
+        OUTBOUND = "outbound", "Outbound"
+
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="interop_message_logs")
+    patient = models.ForeignKey(Patient, on_delete=models.SET_NULL, null=True, blank=True, related_name="interop_message_logs")
+    standard = models.CharField(max_length=16, choices=Standard.choices, default=Standard.FHIR)
+    direction = models.CharField(max_length=16, choices=Direction.choices, default=Direction.OUTBOUND)
+    message_type = models.CharField(max_length=80, blank=True)
+    external_system = models.CharField(max_length=160, blank=True)
+    reference_id = models.CharField(max_length=120, blank=True)
+    payload_excerpt = models.TextField(blank=True)
+    delivered_successfully = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.get_standard_display()} {self.get_direction_display()} message"
+
+
+class ExternalReferral(models.Model):
+    class Direction(models.TextChoices):
+        OUTGOING = "outgoing", "Outgoing"
+        INCOMING = "incoming", "Incoming"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="external_referrals")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="external_referrals")
+    direction = models.CharField(max_length=16, choices=Direction.choices, default=Direction.OUTGOING)
+    organization_name = models.CharField(max_length=180)
+    contact_person = models.CharField(max_length=160, blank=True)
+    contact_details = models.CharField(max_length=180, blank=True)
+    specialty = models.CharField(max_length=120, blank=True)
+    reason = models.TextField()
+    status = models.CharField(max_length=40, default="pending")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} external referral"
+
+
+class InsurancePreAuthorization(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+        EXPIRED = "expired", "Expired"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="insurance_preauthorizations")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="insurance_preauthorizations")
+    admission = models.ForeignKey(Admission, on_delete=models.SET_NULL, null=True, blank=True, related_name="insurance_preauthorizations")
+    surgical_case = models.ForeignKey(SurgicalCase, on_delete=models.SET_NULL, null=True, blank=True, related_name="insurance_preauthorizations")
+    insurer_name = models.CharField(max_length=160)
+    reference_number = models.CharField(max_length=80, blank=True)
+    requested_service = models.CharField(max_length=180)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    decision_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.patient} preauth - {self.requested_service}"
+
+
+class PatientMessage(models.Model):
+    class Status(models.TextChoices):
+        SENT = "sent", "Sent"
+        DELIVERED = "delivered", "Delivered"
+        READ = "read", "Read"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="portal_messages")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="portal_messages")
+    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="sent_patient_messages")
+    recipient = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="received_patient_messages")
+    subject = models.CharField(max_length=180, blank=True)
+    body = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-sent_at"]
+
+    def __str__(self) -> str:
+        return self.subject or f"Message for {self.patient}"
+
+
+class AppointmentReminder(models.Model):
+    class Channel(models.TextChoices):
+        EMAIL = "email", "Email"
+        SMS = "sms", "SMS"
+        IN_APP = "in_app", "In-app"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="reminders")
+    channel = models.CharField(max_length=20, choices=Channel.choices, default=Channel.EMAIL)
+    scheduled_for = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["scheduled_for", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"Reminder for appointment {self.appointment_id}"
+
+
+class DataAccessRequest(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_REVIEW = "in_review", "In review"
+        FULFILLED = "fulfilled", "Fulfilled"
+        REJECTED = "rejected", "Rejected"
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="data_access_requests")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="data_access_requests")
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="data_access_requests")
+    request_scope = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Data access request for {self.patient}"
+
+
+class BreachLog(models.Model):
+    class Severity(models.TextChoices):
+        LOW = "low", "Low"
+        MODERATE = "moderate", "Moderate"
+        HIGH = "high", "High"
+        CRITICAL = "critical", "Critical"
+
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="breach_logs")
+    reported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reported_breach_logs")
+    title = models.CharField(max_length=180)
+    severity = models.CharField(max_length=20, choices=Severity.choices, default=Severity.MODERATE)
+    description = models.TextField()
+    affected_records_estimate = models.PositiveIntegerField(default=0)
+    mitigations = models.TextField(blank=True)
+    occurred_at = models.DateTimeField(null=True, blank=True)
+    reported_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-reported_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class SessionToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="hospital_session_tokens")
+    hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="session_tokens")
+    token_hash = models.CharField(max_length=128, unique=True)
+    ip_address = models.CharField(max_length=64, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-last_seen_at"]
+        indexes = [
+            models.Index(fields=["user", "is_active", "expires_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Session token for {self.user}"

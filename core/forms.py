@@ -181,6 +181,8 @@ class HospitalAccessRedeemForm(forms.Form):
         ).first()
         if not invitation:
             raise forms.ValidationError("The authorization code is invalid or inactive.")
+        if invitation.expires_at and invitation.expires_at < timezone.now():
+            raise forms.ValidationError("The authorization code has expired.")
         self.invitation = invitation
         return code
 

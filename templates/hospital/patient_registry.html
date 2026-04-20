@@ -62,26 +62,31 @@
         </div>
         <span class="mini-icon"><i class="bi bi-funnel"></i></span>
     </div>
-    <form method="get" class="row g-3 align-items-end">
-        <div class="col-lg-5">
-            <label class="form-label">Search</label>
-            <input type="text" name="q" value="{{ search }}" class="form-control" placeholder="Name, username, patient number, or contact person">
-        </div>
-        <div class="col-lg-3">
-            <label class="form-label">Age group</label>
-            <select name="age_group" class="form-select">
-                <option value="">All groups</option>
-                {% for option in age_groups %}
-                    <option value="{{ option }}" {% if age_group == option %}selected{% endif %}>{{ option }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-lg-3">
-            <label class="form-label">Condition</label>
-            <input type="text" name="condition" value="{{ condition_query }}" class="form-control" placeholder="Diabetes, asthma, fracture">
-        </div>
-        <div class="col-lg-1 d-grid">
-            <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-search"></i></button>
+    <form method="get" class="bh-query-panel">
+        <div class="bh-query-grid">
+            <div class="bh-query-field bh-query-field-wide">
+                <label for="registryQuery">Search</label>
+                <div class="bh-search-shell">
+                    <i class="bi bi-search"></i>
+                    <input id="registryQuery" type="text" name="q" value="{{ search }}" class="form-control" placeholder="Name, username, patient number, or contact person">
+                </div>
+            </div>
+            <div class="bh-query-field">
+                <label for="registryAge">Age group</label>
+                <select id="registryAge" name="age_group" class="form-select">
+                    <option value="">All groups</option>
+                    {% for option in age_groups %}
+                        <option value="{{ option }}" {% if age_group == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="bh-query-field">
+                <label for="registryCondition">Condition</label>
+                <input id="registryCondition" type="text" name="condition" value="{{ condition_query }}" class="form-control" placeholder="Diabetes, asthma, fracture">
+            </div>
+            <div class="bh-query-actions">
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-search"></i><span>Search</span></button>
+            </div>
         </div>
     </form>
 </div>

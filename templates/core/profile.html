@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<div data-live-page-root>
 <section class="banner-card p-4 p-lg-5 mb-4">
     <div class="row align-items-center g-4">
         <div class="col-lg-8">
@@ -137,7 +138,7 @@
             <span class="profile-expand-summary-meta"><i class="bi bi-pencil-square"></i><span>Editable profile</span><i class="bi bi-chevron-down"></i></span>
         </summary>
             <div class="profile-expand-body pt-4">
-            <form method="post" enctype="multipart/form-data" class="auth-form">
+            <form method="post" enctype="multipart/form-data" class="auth-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 <div class="row g-3">
                     {% for field in profile_form %}
@@ -237,13 +238,13 @@
                             {% if current_hospital and current_hospital.id == access.hospital.id %}
                                 <span class="status-pill"><i class="bi bi-check2-circle"></i>Active</span>
                             {% endif %}
-                            <form method="post" action="{% url 'switch_hospital' %}" class="m-0">
+                            <form method="post" action="{% url 'switch_hospital' %}" class="m-0" data-async-dashboard-form data-async-behavior="live-root-refresh">
                                 {% csrf_token %}
                                 <input type="hidden" name="hospital_id" value="{{ access.hospital.id }}">
                                 <button class="bh-btn bh-btn-outline-light bh-btn-inline" type="submit">Open</button>
                             </form>
                             {% if access.role != 'patient' %}
-                            <form method="post" action="{% url 'update_hospital_access_status' %}" class="m-0">
+                            <form method="post" action="{% url 'update_hospital_access_status' %}" class="m-0" data-async-dashboard-form data-async-behavior="live-root-refresh">
                                 {% csrf_token %}
                                 <input type="hidden" name="access_id" value="{{ access.id }}">
                                 <input type="hidden" name="action" value="leave">
@@ -275,7 +276,7 @@
             <span class="profile-expand-summary-meta"><i class="bi bi-key"></i><span>Join facility</span><i class="bi bi-chevron-down"></i></span>
         </summary>
         <div class="profile-expand-body pt-4">
-            <form method="post" action="{% url 'redeem_hospital_access' %}" class="auth-form">
+            <form method="post" action="{% url 'redeem_hospital_access' %}" class="auth-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 <div class="form-field-stack mb-3">
                     {{ redeem_form.invitation_code.label_tag }}
@@ -333,5 +334,6 @@
         </div>
     </details>
     {% endif %}
+</div>
 </div>
 {% endblock %}

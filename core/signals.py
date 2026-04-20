@@ -20,7 +20,7 @@ def ensure_role_profile(sender, instance: User, created: bool, **kwargs):
                 "specialization": "General Practice",
                 "license_number": f"LIC-{instance.pk:05d}",
                 "consultation_fee": 0,
-                "available_days": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
+                "available_days": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday",
                 "start_time": "09:00",
                 "end_time": "17:00",
             },

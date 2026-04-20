@@ -2,30 +2,67 @@ from django.contrib import admin
 
 from .models import (
     Admission,
+    Allergy,
+    AnesthesiaRecord,
     Appointment,
+    AppointmentReminder,
+    AssetAssignment,
     AuditEvent,
     Bed,
     BedTransfer,
     Billing,
+    BreachLog,
+    CaregiverAccess,
+    CarePlan,
+    Certification,
+    ChronicCondition,
+    ConditionCatalog,
+    ConsentForm,
+    DataAccessRequest,
+    Document,
+    DocumentCategory,
+    EmergencyIncident,
+    Equipment,
+    ExternalReferral,
+    FamilyMedicalHistory,
+    GeneratedReport,
     Hospital,
     HospitalAccess,
     HospitalInvitation,
-    Certification,
     DischargeSummary,
     Doctor,
-    ConditionCatalog,
+    Immunization,
+    InsurancePreAuthorization,
+    InteroperabilityMessageLog,
     LabTestRequest,
     LabTestResult,
+    LabPanel,
+    MaintenanceLog,
     MedicalRecord,
+    MedicalImage,
+    MedicationAdministrationRecord,
+    MentalHealthRecord,
+    MaternityRecord,
+    NeonatalRecord,
     OperatingRoom,
+    OutcomeTracking,
     Patient,
     PatientCondition,
+    PatientMessage,
     PatientVisit,
+    PediatricGrowthChart,
     PharmacyTask,
     QueueTicket,
+    Room,
+    SessionToken,
     ShiftAssignment,
+    ShiftHandover,
+    Specimen,
+    SurgicalHistory,
     SurgicalCase,
+    SurgicalTeamMember,
     StaffProfile,
+    SupplyRequest,
     VitalSign,
     WalkInEncounter,
     WalkInEvent,
@@ -62,3 +99,40 @@ admin.site.register(PatientCondition)
 admin.site.register(OperatingRoom)
 admin.site.register(SurgicalCase)
 admin.site.register(Billing)
+admin.site.register(Allergy)
+admin.site.register(Immunization)
+admin.site.register(ChronicCondition)
+admin.site.register(FamilyMedicalHistory)
+admin.site.register(SurgicalHistory)
+admin.site.register(ConsentForm)
+admin.site.register(DocumentCategory)
+admin.site.register(Document)
+admin.site.register(MedicalImage)
+admin.site.register(MedicationAdministrationRecord)
+admin.site.register(LabPanel)
+admin.site.register(Specimen)
+admin.site.register(Room)
+admin.site.register(Equipment)
+admin.site.register(MaintenanceLog)
+admin.site.register(AssetAssignment)
+admin.site.register(MaternityRecord)
+admin.site.register(NeonatalRecord)
+admin.site.register(PediatricGrowthChart)
+admin.site.register(MentalHealthRecord)
+admin.site.register(AnesthesiaRecord)
+admin.site.register(SurgicalTeamMember)
+admin.site.register(OutcomeTracking)
+admin.site.register(GeneratedReport)
+admin.site.register(InteroperabilityMessageLog)
+admin.site.register(ExternalReferral)
+admin.site.register(InsurancePreAuthorization)
+admin.site.register(PatientMessage)
+admin.site.register(AppointmentReminder)
+admin.site.register(DataAccessRequest)
+admin.site.register(BreachLog)
+admin.site.register(SessionToken)
+admin.site.register(CarePlan)
+admin.site.register(CaregiverAccess)
+admin.site.register(SupplyRequest)
+admin.site.register(ShiftHandover)
+admin.site.register(EmergencyIncident)

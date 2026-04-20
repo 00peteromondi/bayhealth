@@ -37,19 +37,26 @@ from .billing import (
 
 from .forms import (
     AdmissionForm,
+    AllergyForm,
     AdvanceDirectiveForm,
     AppointmentForm,
     BedTransferForm,
     CarePlanForm,
     CaregiverAccessForm,
+    ChronicConditionForm,
+    ConsentFormRecordForm,
     DischargeSummaryForm,
+    DocumentForm,
     DoctorTaskForm,
     EmergencyIncidentForm,
+    FamilyMedicalHistoryForm,
     FollowUpAppointmentForm,
     HospitalInvitationForm,
+    ImmunizationForm,
     InternalReferralForm,
     LabQualityControlLogForm,
     MedicalRecordForm,
+    MedicalImageForm,
     NurseTriageForm,
     PatientConditionForm,
     PatientDeathRecordForm,
@@ -57,6 +64,7 @@ from .forms import (
     PharmacyTaskUpdateForm,
     ShiftHandoverForm,
     ShiftAssignmentForm,
+    SurgicalHistoryForm,
     eligible_shift_staff_queryset,
     format_shift_staff_label,
     scheduled_shift_hours_for_week,
@@ -70,25 +78,34 @@ from .forms import (
 from core.forms import AssistantAccessGrantForm
 from .models import (
     Admission,
+    Allergy,
     AdvanceDirective,
     Appointment,
+    AppointmentReminder,
     Bed,
     BedTransfer,
     Billing,
     CarePlan,
     CaregiverAccess,
+    ChronicCondition,
     ConditionCatalog,
+    ConsentForm,
     Doctor,
     DoctorTask,
+    Document,
+    DocumentCategory,
     DischargeSummary,
+    FamilyMedicalHistory,
     HospitalAccess,
     HospitalInvitation,
     Hospital,
+    Immunization,
     InternalReferral,
     LabQualityControlLog,
     LabTestRequest,
     LabTestResult,
     MedicalRecord,
+    MedicalImage,
     OperatingRoom,
     Patient,
     PatientCondition,
@@ -101,6 +118,7 @@ from .models import (
     StaffProfile,
     SupplyRequest,
     SurgicalCase,
+    SurgicalHistory,
     VitalSign,
     WalkInEncounter,
     WalkInEvent,
@@ -853,6 +871,44 @@ def _invitation_roles_for_access(active_access):
     return []
 
 
+def _can_manage_invitation(active_access, invitation, user):
+    if not active_access or not invitation:
+        return False
+    if active_access.role in OWNER_ROLES:
+        return invitation.hospital_id == active_access.hospital_id
+    if active_access.role in STAFF_INVITER_ROLES:
+        return invitation.hospital_id == active_access.hospital_id and invitation.created_by_id == user.id
+    return False
+
+
+def _clear_pending_invitation_users(invitation):
+    if not invitation:
+        return
+    User.objects.filter(pending_hospital_invitation=invitation).update(pending_hospital_invitation=None)
+
+
+def _matching_active_invitation(*, hospital, role, invitee_name, invitee_email, exclude_id=None):
+    if not hospital or (not invitee_name and not invitee_email):
+        return None
+    invitations = HospitalInvitation.objects.filter(
+        hospital=hospital,
+        role=role,
+        is_active=True,
+        redeemed_at__isnull=True,
+    )
+    if exclude_id:
+        invitations = invitations.exclude(pk=exclude_id)
+    if invitee_email:
+        match = invitations.filter(invitee_email__iexact=invitee_email).order_by("-created_at").first()
+        if match:
+            return match
+    if invitee_name:
+        match = invitations.filter(invitee_name__iexact=invitee_name).order_by("-created_at").first()
+        if match:
+            return match
+    return None
+
+
 def _active_accesses(request):
     accesses = list(
         HospitalAccess.objects.select_related("hospital").filter(
@@ -1120,6 +1176,104 @@ def _minutes_ago_label(moment):
     return f"Updated {hours} hours ago"
 
 
+def _can_edit_patient_clinical_extensions(active_access):
+    return bool(
+        active_access
+        and active_access.role in OWNER_ROLES | {HospitalAccess.Role.DOCTOR, HospitalAccess.Role.NURSE, HospitalAccess.Role.LAB_TECHNICIAN}
+    )
+
+
+def _patient_detail_context(request, *, patient, hospital, active_access, history, consolidated_records, timeline):
+    grouped = defaultdict(
+        lambda: {
+            "appointments": 0,
+            "records": 0,
+            "conditions": 0,
+            "surgeries": 0,
+            "admissions": 0,
+            "labs": 0,
+        }
+    )
+
+    for item in history["appointments"]:
+        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
+        grouped[key]["appointments"] += 1
+    for item in history["records"]:
+        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
+        grouped[key]["records"] += 1
+    for item in history["conditions"]:
+        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
+        grouped[key]["conditions"] += 1
+    for item in history["surgeries"]:
+        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
+        grouped[key]["surgeries"] += 1
+    for item in history["admissions"]:
+        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
+        grouped[key]["admissions"] += 1
+    for item in history["labs"]:
+        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
+        grouped[key]["labs"] += 1
+
+    active_admission = history["admissions"].filter(status=Admission.Status.ACTIVE).select_related("ward", "bed", "hospital").first()
+    grant_hospital = active_access.hospital if active_access else hospital
+    can_manage_patient_access = bool(active_access and active_access.role in OWNER_ROLES)
+    can_mark_deceased = bool(active_access and active_access.role in OWNER_ROLES | {HospitalAccess.Role.DOCTOR})
+    can_edit_extensions = _can_edit_patient_clinical_extensions(active_access)
+    assistant_access_form = AssistantAccessGrantForm(hospital=grant_hospital) if can_manage_patient_access else None
+    death_record_form = PatientDeathRecordForm(instance=patient) if can_mark_deceased and not patient.is_deceased else None
+    assistant_access_grants = (
+        AssistantAccessGrant.objects.select_related("requester", "approved_by")
+        .filter(patient_user=patient.user, hospital_id=getattr(grant_hospital, "id", None))
+        .order_by("-created_at")[:6]
+        if can_manage_patient_access and grant_hospital
+        else []
+    )
+
+    return {
+        "patient": patient,
+        "current_hospital": hospital,
+        "history": history,
+        "consolidated_records": consolidated_records,
+        "timeline": timeline,
+        "facility_breakdown": [{"label": facility, **values} for facility, values in grouped.items()],
+        "overview_cards": [
+            {"label": "Appointments", "value": history["appointments"].count(), "icon": "bi-calendar2-check"},
+            {"label": "Records", "value": history["records"].count(), "icon": "bi-journal-medical"},
+            {"label": "Conditions", "value": history["conditions"].count(), "icon": "bi-clipboard2-pulse"},
+            {"label": "Surgeries", "value": history["surgeries"].count(), "icon": "bi-scissors"},
+            {"label": "Labs", "value": history["labs"].count(), "icon": "bi-eyedropper"},
+            {"label": "Admissions", "value": history["admissions"].count(), "icon": "bi-hospital"},
+        ],
+        "active_admission": active_admission,
+        "assistant_access_form": assistant_access_form,
+        "assistant_access_grants": assistant_access_grants,
+        "can_manage_patient_access": can_manage_patient_access,
+        "can_mark_deceased": can_mark_deceased,
+        "death_record_form": death_record_form,
+        "can_edit_patient_extensions": can_edit_extensions,
+        "allergy_entries": patient.allergies.order_by("-is_active", "-created_at")[:8],
+        "immunization_entries": patient.immunizations.order_by("-administered_on", "-created_at")[:8],
+        "chronic_condition_entries": patient.chronic_conditions.select_related("primary_doctor__user", "condition").order_by("status", "-updated_at")[:8],
+        "family_history_entries": patient.family_history_records.select_related("condition").order_by("-recorded_at")[:8],
+        "surgical_history_entries": patient.surgical_history_entries.order_by("-procedure_date", "-created_at")[:8],
+        "consent_form_entries": patient.consent_forms.order_by("-created_at")[:8],
+        "document_entries": patient.documents.select_related("category", "uploaded_by").order_by("-uploaded_at")[:8],
+        "medical_image_entries": patient.medical_images.order_by("-captured_at", "-created_at")[:8],
+        "maternity_records": patient.maternity_records.select_related("primary_doctor__user").order_by("-updated_at")[:4],
+        "neonatal_records": patient.neonatal_records.order_by("-created_at")[:4],
+        "growth_entries": patient.growth_chart_entries.order_by("-recorded_on")[:6],
+        "mental_health_records": patient.mental_health_records.order_by("-session_date", "-created_at")[:4],
+        "allergy_form": AllergyForm(),
+        "immunization_form": ImmunizationForm(),
+        "chronic_condition_form": ChronicConditionForm(hospital=hospital),
+        "family_history_form": FamilyMedicalHistoryForm(),
+        "surgical_history_form": SurgicalHistoryForm(),
+        "consent_form_record_form": ConsentFormRecordForm(),
+        "document_form": DocumentForm(),
+        "medical_image_form": MedicalImageForm(),
+    }
+
+
 def _selected_period(request, key, default="day"):
     value = (request.GET.get(key) or default).strip().lower()
     if value not in {"day", "week", "month", "custom"}:
@@ -1134,6 +1288,19 @@ def _date_from_query(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except (TypeError, ValueError):
         return None
+
+
+def _async_patient_detail_response(request, *, ok, message, status=200, errors=None):
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return None
+    return JsonResponse(
+        {
+            "ok": ok,
+            "message": message,
+            "errors": errors or {},
+        },
+        status=status,
+    )
 
 
 def _period_bounds(request, key, *, default="day"):
@@ -1812,7 +1979,7 @@ def _hospital_admin_context(request, hospital):
     )
     active_staff_accesses = staff_accesses.filter(status=HospitalAccess.Status.ACTIVE)
     invitations = (
-        HospitalInvitation.objects.select_related("created_by", "redeemed_by")
+        HospitalInvitation.objects.select_related("created_by", "redeemed_by", "revoked_by")
         .filter(hospital=hospital)
         .order_by("-created_at")[:8]
         if hospital
@@ -1953,8 +2120,8 @@ def dashboard(request):
     accesses, active_access, hospital = _active_accesses(request)
     if user.role == User.Role.PATIENT:
         patient = get_object_or_404(Patient, user=user)
-        if patient.is_deceased or not any(access.role == HospitalAccess.Role.PATIENT for access in accesses):
-            raise PermissionDenied("This patient account no longer has active facility access.")
+        if patient.is_deceased:
+            raise PermissionDenied("This patient record has been marked deceased and cannot access the patient workspace.")
     if hospital is None and user.role == User.Role.ADMIN:
         hospital = Hospital.objects.filter(owner=user, is_active=True).first()
     active_role = active_access.role if active_access else user.role
@@ -2770,6 +2937,35 @@ def create_invitation(request):
         raise PermissionDenied("Hospital staff with invitation rights only.")
     allowed_roles = _invitation_roles_for_access(active_access)
     form = HospitalInvitationForm(request.POST, allowed_roles=allowed_roles)
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    if form.is_valid() and hospital:
+        invitee_name = form.cleaned_data.get("invitee_name") or ""
+        invitee_email = form.cleaned_data.get("invitee_email") or ""
+        role = form.cleaned_data.get("role")
+        existing_invitation = _matching_active_invitation(
+            hospital=hospital,
+            role=role,
+            invitee_name=invitee_name,
+            invitee_email=invitee_email,
+        )
+        if existing_invitation:
+            existing_identity = invitee_email or invitee_name or existing_invitation.code
+            form.add_error(
+                None,
+                f"An active authorization code already exists for {existing_identity}. Manage the existing code before creating another one.",
+            )
+        elif invitee_email:
+            existing_access = HospitalAccess.objects.select_related("user").filter(
+                hospital=hospital,
+                role=role,
+                status=HospitalAccess.Status.ACTIVE,
+                user__email__iexact=invitee_email,
+            ).first()
+            if existing_access:
+                form.add_error(
+                    "invitee_email",
+                    f"{existing_access.user.get_full_name() or existing_access.user.username} already has active {existing_access.get_role_display().lower()} access for this hospital.",
+                )
     if form.is_valid() and hospital:
         invitation = form.save(commit=False)
         invitation.hospital = hospital
@@ -2782,8 +2978,8 @@ def create_invitation(request):
         request.session["latest_invitation_code"] = invitation.code
         _notify_hospital_admins(
             hospital,
-            "Patient invitation created",
-            f"{request.user.get_full_name() or request.user.username} created an invitation for a patient at {hospital.name}.",
+            "Hospital invitation created",
+            f"{request.user.get_full_name() or request.user.username} created a {invitation.get_role_display().lower()} invitation at {hospital.name}.",
             exclude_user=request.user,
         )
         messages.success(request, f"Authorization code generated for {invitation.get_role_display()}.")
@@ -2791,13 +2987,142 @@ def create_invitation(request):
             return JsonResponse(
                 {
                     "ok": True,
+                    "message": f"Authorization code generated for {invitation.get_role_display()}.",
                     "code": invitation.code,
                     "role": invitation.get_role_display(),
                     "hospital": hospital.name,
+                    "invitation": {
+                        "id": invitation.id,
+                        "code": invitation.code,
+                        "role": invitation.get_role_display(),
+                        "invitee_name": invitation.invitee_name or "",
+                        "invitee_email": invitation.invitee_email or "",
+                        "is_active": invitation.is_active,
+                    },
                 }
             )
     else:
+        if is_ajax:
+            error_map = {field: list(messages) for field, messages in form.errors.items()}
+            response_message = "Please complete the authorization code form."
+            non_field_errors = error_map.get("__all__") or []
+            if non_field_errors:
+                response_message = non_field_errors[0]
+            elif error_map:
+                response_message = next(iter(next(iter(error_map.values()), [])), response_message)
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "message": response_message,
+                    "errors": error_map,
+                },
+                status=400,
+            )
         messages.error(request, "Please complete the authorization code form.")
+    return redirect("hospital:dashboard")
+
+
+@login_required
+@require_http_methods(["POST"])
+def manage_invitation(request, invitation_id):
+    accesses, active_access, hospital = _active_accesses(request)
+    invitation = get_object_or_404(HospitalInvitation.objects.select_related("created_by", "redeemed_by", "revoked_by"), pk=invitation_id)
+    if not _can_manage_invitation(active_access, invitation, request.user):
+        raise PermissionDenied("You do not have permission to manage this authorization code.")
+
+    action = (request.POST.get("action") or "").strip().lower()
+    if action not in {"revoke", "reactivate", "delete"}:
+        raise ValidationError("Unsupported invitation action.")
+
+    if action == "delete":
+        if invitation.redeemed_at:
+            response = _async_dashboard_response(
+                request,
+                ok=False,
+                message="Redeemed authorization codes cannot be deleted.",
+                status=400,
+            )
+            if response is not None:
+                return response
+            messages.error(request, "Redeemed authorization codes cannot be deleted.")
+            return redirect("hospital:dashboard")
+        _clear_pending_invitation_users(invitation)
+        invitation.delete()
+        response = _async_dashboard_response(request, ok=True, message="Authorization code deleted.")
+        if response is not None:
+            return response
+        return redirect("hospital:dashboard")
+
+    if action == "revoke":
+        if invitation.redeemed_at:
+            response = _async_dashboard_response(
+                request,
+                ok=False,
+                message="Redeemed authorization codes cannot be revoked.",
+                status=400,
+            )
+            if response is not None:
+                return response
+            messages.error(request, "Redeemed authorization codes cannot be revoked.")
+            return redirect("hospital:dashboard")
+        invitation.is_active = False
+        invitation.revoked_at = timezone.now()
+        invitation.revoked_by = request.user
+        invitation.save(update_fields=["is_active", "revoked_at", "revoked_by"])
+        _clear_pending_invitation_users(invitation)
+        response = _async_dashboard_response(request, ok=True, message="Authorization code revoked.")
+        if response is not None:
+            return response
+        return redirect("hospital:dashboard")
+
+    existing_invitation = _matching_active_invitation(
+        hospital=invitation.hospital,
+        role=invitation.role,
+        invitee_name=invitation.invitee_name,
+        invitee_email=invitation.invitee_email,
+        exclude_id=invitation.id,
+    )
+    if existing_invitation:
+        existing_identity = invitation.invitee_email or invitation.invitee_name or existing_invitation.code
+        response = _async_dashboard_response(
+            request,
+            ok=False,
+            message=f"Another active authorization code already exists for {existing_identity}. Revoke or delete it first.",
+            status=400,
+        )
+        if response is not None:
+            return response
+        messages.error(request, f"Another active authorization code already exists for {existing_identity}.")
+        return redirect("hospital:dashboard")
+    if invitation.redeemed_at:
+        response = _async_dashboard_response(
+            request,
+            ok=False,
+            message="Redeemed authorization codes cannot be reactivated.",
+            status=400,
+        )
+        if response is not None:
+            return response
+        messages.error(request, "Redeemed authorization codes cannot be reactivated.")
+        return redirect("hospital:dashboard")
+    if invitation.expires_at and invitation.expires_at < timezone.now():
+        response = _async_dashboard_response(
+            request,
+            ok=False,
+            message="Expired authorization codes cannot be reactivated. Delete it and generate a fresh code instead.",
+            status=400,
+        )
+        if response is not None:
+            return response
+        messages.error(request, "Expired authorization codes cannot be reactivated.")
+        return redirect("hospital:dashboard")
+    invitation.is_active = True
+    invitation.revoked_at = None
+    invitation.revoked_by = None
+    invitation.save(update_fields=["is_active", "revoked_at", "revoked_by"])
+    response = _async_dashboard_response(request, ok=True, message="Authorization code reactivated.")
+    if response is not None:
+        return response
     return redirect("hospital:dashboard")
 
 
@@ -3399,34 +3724,6 @@ def patient_detail(request, patient_id):
 
     history = _patient_history_queryset(patient, hospital=None)
     consolidated_records = _patient_record_feed(history, patient)
-    grouped = defaultdict(lambda: {
-        "appointments": 0,
-        "records": 0,
-        "conditions": 0,
-        "surgeries": 0,
-        "admissions": 0,
-        "labs": 0,
-    })
-
-    for item in history["appointments"]:
-        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
-        grouped[key]["appointments"] += 1
-    for item in history["records"]:
-        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
-        grouped[key]["records"] += 1
-    for item in history["conditions"]:
-        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
-        grouped[key]["conditions"] += 1
-    for item in history["surgeries"]:
-        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
-        grouped[key]["surgeries"] += 1
-    for item in history["admissions"]:
-        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
-        grouped[key]["admissions"] += 1
-    for item in history["labs"]:
-        key = item.hospital.name if item.hospital else (patient.hospital.name if patient.hospital else "Shared")
-        grouped[key]["labs"] += 1
-
     timeline = []
     for item in history["appointments"][:10]:
         timeline.append(
@@ -3469,49 +3766,16 @@ def patient_detail(request, patient_id):
             }
         )
     timeline = timeline[:12]
-    active_admission = history["admissions"].filter(status=Admission.Status.ACTIVE).select_related("ward", "bed", "hospital").first()
-    grant_hospital = active_access.hospital if active_access else hospital
-    can_manage_patient_access = bool(active_access and active_access.role in OWNER_ROLES)
-    can_mark_deceased = bool(active_access and active_access.role in OWNER_ROLES | {HospitalAccess.Role.DOCTOR})
-    assistant_access_form = AssistantAccessGrantForm(hospital=grant_hospital) if can_manage_patient_access else None
-    death_record_form = PatientDeathRecordForm(instance=patient) if can_mark_deceased and not patient.is_deceased else None
-    assistant_access_grants = (
-        AssistantAccessGrant.objects.select_related("requester", "approved_by")
-        .filter(patient_user=patient.user, hospital_id=getattr(grant_hospital, "id", None))
-        .order_by("-created_at")[:6]
-        if can_manage_patient_access and grant_hospital
-        else []
-    )
-
-    return render(
+    context = _patient_detail_context(
         request,
-        "hospital/patient_detail.html",
-        {
-            "patient": patient,
-            "current_hospital": hospital,
-            "history": history,
-            "consolidated_records": consolidated_records,
-            "timeline": timeline,
-            "facility_breakdown": [
-                {"label": facility, **values}
-                for facility, values in grouped.items()
-            ],
-            "overview_cards": [
-                {"label": "Appointments", "value": history["appointments"].count(), "icon": "bi-calendar2-check"},
-                {"label": "Records", "value": history["records"].count(), "icon": "bi-journal-medical"},
-                {"label": "Conditions", "value": history["conditions"].count(), "icon": "bi-clipboard2-pulse"},
-                {"label": "Surgeries", "value": history["surgeries"].count(), "icon": "bi-scissors"},
-                {"label": "Labs", "value": history["labs"].count(), "icon": "bi-eyedropper"},
-                {"label": "Admissions", "value": history["admissions"].count(), "icon": "bi-hospital"},
-            ],
-            "active_admission": active_admission,
-            "assistant_access_form": assistant_access_form,
-            "assistant_access_grants": assistant_access_grants,
-            "can_manage_patient_access": can_manage_patient_access,
-            "can_mark_deceased": can_mark_deceased,
-            "death_record_form": death_record_form,
-        },
+        patient=patient,
+        hospital=hospital,
+        active_access=active_access,
+        history=history,
+        consolidated_records=consolidated_records,
+        timeline=timeline,
     )
+    return render(request, "hospital/patient_detail.html", context)
 
 
 @login_required
@@ -3536,6 +3800,201 @@ def mark_patient_deceased(request, patient_id):
         notes=form.cleaned_data.get("deceased_notes", ""),
     )
     messages.success(request, f"{patient} has been recorded as deceased across BayAfya.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+def _patient_extension_target(request, patient_id):
+    accesses, active_access, hospital = _active_accesses(request)
+    if not _can_edit_patient_clinical_extensions(active_access):
+        raise PermissionDenied("Clinical access is required.")
+    patient = get_object_or_404(Patient.objects.select_related("user", "hospital"), pk=patient_id)
+    return active_access, hospital, patient
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_allergy(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = AllergyForm(request.POST)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.recorded_by = request.user
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Allergy record saved.")
+        if response is not None:
+            return response
+        messages.success(request, "Allergy record saved.")
+    else:
+        response = _async_patient_detail_response(
+            request,
+            ok=False,
+            message="Please review the allergy details.",
+            status=400,
+            errors=_dashboard_form_errors(form),
+        )
+        if response is not None:
+            return response
+        messages.error(request, "Please review the allergy details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_immunization(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = ImmunizationForm(request.POST)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.recorded_by = request.user
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Immunization saved.")
+        if response is not None:
+            return response
+        messages.success(request, "Immunization saved.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the immunization details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the immunization details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_chronic_condition(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = ChronicConditionForm(request.POST, hospital=hospital or patient.hospital)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Chronic condition saved.")
+        if response is not None:
+            return response
+        messages.success(request, "Chronic condition saved.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the chronic condition details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the chronic condition details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_family_history(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = FamilyMedicalHistoryForm(request.POST)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Family history saved.")
+        if response is not None:
+            return response
+        messages.success(request, "Family history saved.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the family history details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the family history details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_surgical_history(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = SurgicalHistoryForm(request.POST)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.documented_by = request.user
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Surgical history saved.")
+        if response is not None:
+            return response
+        messages.success(request, "Surgical history saved.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the surgical history details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the surgical history details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_consent_form_record(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = ConsentFormRecordForm(request.POST, request.FILES)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Consent form saved.")
+        if response is not None:
+            return response
+        messages.success(request, "Consent form saved.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the consent form details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the consent form details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_patient_document(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = DocumentForm(request.POST, request.FILES)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.uploaded_by = request.user
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Patient document uploaded.")
+        if response is not None:
+            return response
+        messages.success(request, "Patient document uploaded.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the document details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the document details.")
+    return redirect("hospital:patient_detail", patient_id=patient.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_medical_image(request, patient_id):
+    _, hospital, patient = _patient_extension_target(request, patient_id)
+    form = MedicalImageForm(request.POST, request.FILES)
+    if form.is_valid():
+        entry = form.save(commit=False)
+        entry.patient = patient
+        entry.hospital = hospital or patient.hospital
+        entry.uploaded_by = request.user
+        entry.save()
+        response = _async_patient_detail_response(request, ok=True, message="Medical image uploaded.")
+        if response is not None:
+            return response
+        messages.success(request, "Medical image uploaded.")
+    else:
+        response = _async_patient_detail_response(request, ok=False, message="Please review the imaging details.", status=400, errors=_dashboard_form_errors(form))
+        if response is not None:
+            return response
+        messages.error(request, "Please review the imaging details.")
     return redirect("hospital:patient_detail", patient_id=patient.id)
 
 

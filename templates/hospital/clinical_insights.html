@@ -70,16 +70,29 @@
         <div class="card p-4 mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
                 <div><span class="section-kicker">Reporting</span><h2 class="h4 mt-3 mb-0">Condition and disease reports</h2></div>
-                <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
-                    <select class="form-select" name="period" style="min-width: 10rem;">
-                        <option value="day" {% if reporting.period == "day" %}selected{% endif %}>Daily</option>
-                        <option value="week" {% if reporting.period == "week" %}selected{% endif %}>Weekly</option>
-                        <option value="month" {% if reporting.period == "month" %}selected{% endif %}>Monthly</option>
-                        <option value="custom" {% if reporting.period == "custom" %}selected{% endif %}>Custom</option>
-                    </select>
-                    <input class="form-control" type="date" name="start" value="{{ reporting.start|date:'Y-m-d' }}">
-                    <input class="form-control" type="date" name="end" value="{{ reporting.end|date:'Y-m-d' }}">
-                    <button class="bh-btn bh-btn-primary bh-btn-inline" type="submit"><i class="bi bi-funnel"></i><span>Apply</span></button>
+                <form method="get" class="bh-query-panel bh-query-inline">
+                    <div class="bh-query-grid bh-query-grid-tight">
+                        <div class="bh-query-field">
+                            <label for="insightPeriod">Window</label>
+                            <select id="insightPeriod" class="form-select" name="period">
+                                <option value="day" {% if reporting.period == "day" %}selected{% endif %}>Daily</option>
+                                <option value="week" {% if reporting.period == "week" %}selected{% endif %}>Weekly</option>
+                                <option value="month" {% if reporting.period == "month" %}selected{% endif %}>Monthly</option>
+                                <option value="custom" {% if reporting.period == "custom" %}selected{% endif %}>Custom</option>
+                            </select>
+                        </div>
+                        <div class="bh-query-field">
+                            <label for="insightStart">Start</label>
+                            <input id="insightStart" class="form-control" type="date" name="start" value="{{ reporting.start|date:'Y-m-d' }}">
+                        </div>
+                        <div class="bh-query-field">
+                            <label for="insightEnd">End</label>
+                            <input id="insightEnd" class="form-control" type="date" name="end" value="{{ reporting.end|date:'Y-m-d' }}">
+                        </div>
+                        <div class="bh-query-actions">
+                            <button class="bh-btn bh-btn-primary bh-btn-inline" type="submit"><i class="bi bi-funnel"></i><span>Apply</span></button>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="row g-3">
@@ -194,7 +207,7 @@
                 <div><span class="section-kicker">Record entry</span><h2 class="h4 mt-3 mb-0">Log a patient condition</h2></div>
                 <span class="mini-icon"><i class="bi bi-pen"></i></span>
             </div>
-            <form method="post" action="{% url 'hospital:record_patient_condition' %}" class="auth-form">
+            <form method="post" action="{% url 'hospital:record_patient_condition' %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 <div class="row g-3">
                     {% for field in condition_form %}
@@ -215,5 +228,5 @@
         </div>
     </div>
 </div>
- </div>
+</div>
 {% endblock %}

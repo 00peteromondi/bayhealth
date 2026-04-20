@@ -72,7 +72,7 @@
                 <div><span class="section-kicker">Schedule</span><h2 class="h4 mt-3 mb-0">Book a surgical case</h2></div>
                 <span class="mini-icon"><i class="bi bi-journal-medical"></i></span>
             </div>
-            <form method="post" class="auth-form">
+            <form method="post" class="auth-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
                 {% csrf_token %}
                 <div class="row g-3">
                     {% for field in form %}

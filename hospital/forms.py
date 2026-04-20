@@ -9,34 +9,48 @@ from core.models import User
 
 from .models import (
     Admission,
+    Allergy,
     AdvanceDirective,
+    AppointmentReminder,
     Appointment,
     Bed,
     BedTransfer,
     CarePlan,
     CaregiverAccess,
+    ChronicCondition,
     ConditionCatalog,
+    ConsentForm,
     Doctor,
     DoctorTask,
+    Document,
+    DocumentCategory,
     DischargeSummary,
+    Equipment,
     Hospital,
     HospitalAccess,
     HospitalInvitation,
+    Immunization,
     InternalReferral,
     LabTestRequest,
     LabTestResult,
+    LabPanel,
     LabQualityControlLog,
     MedicalRecord,
+    MedicalImage,
+    MedicationAdministrationRecord,
     OperatingRoom,
     Patient,
     PatientCondition,
     PatientFeedback,
+    FamilyMedicalHistory,
     PharmacyTask,
+    Room,
     ShiftAssignment,
     ShiftHandover,
     StaffProfile,
     SupplyRequest,
     SurgicalCase,
+    SurgicalHistory,
     VitalSign,
     WalkInEncounter,
     Ward,
@@ -524,6 +538,12 @@ class HospitalInvitationForm(forms.ModelForm):
             raise forms.ValidationError("This invitation type is not available for your current access level.")
         return role
 
+    def clean_invitee_name(self):
+        return " ".join((self.cleaned_data.get("invitee_name") or "").split())
+
+    def clean_invitee_email(self):
+        return (self.cleaned_data.get("invitee_email") or "").strip().lower()
+
 
 class AdmissionForm(forms.ModelForm):
     class Meta:
@@ -726,6 +746,172 @@ class PatientFeedbackForm(forms.ModelForm):
         self.fields["staff_member"].queryset = queryset.order_by("first_name", "last_name", "username")
         self.fields["staff_member"].required = False
         self.fields["staff_member"].label_from_instance = lambda user: f"{user.get_full_name() or user.username} • {user.get_role_display()}"
+
+
+class AllergyForm(forms.ModelForm):
+    identified_at = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    class Meta:
+        model = Allergy
+        fields = ["allergen", "reaction_type", "severity", "identified_at", "notes"]
+        widgets = {
+            "allergen": forms.TextInput(attrs={"class": "form-control", "placeholder": "Penicillin, peanuts, latex"}),
+            "reaction_type": forms.TextInput(attrs={"class": "form-control", "placeholder": "Rash, anaphylaxis, wheezing"}),
+            "severity": forms.Select(attrs={"class": "form-select"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Clinical precautions, trigger pattern, rescue plan"}),
+        }
+
+
+class ImmunizationForm(forms.ModelForm):
+    administered_on = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"})
+    )
+    next_due_on = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    class Meta:
+        model = Immunization
+        fields = ["vaccine_name", "dose_number", "manufacturer", "batch_number", "administered_on", "next_due_on", "notes"]
+        widgets = {
+            "vaccine_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Tetanus booster, Hepatitis B"}),
+            "dose_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "Dose 2, Booster"}),
+            "manufacturer": forms.TextInput(attrs={"class": "form-control"}),
+            "batch_number": forms.TextInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Adverse effects, next dose advice, clinic notes"}),
+        }
+
+
+class ChronicConditionForm(forms.ModelForm):
+    onset_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    class Meta:
+        model = ChronicCondition
+        fields = ["condition", "name", "primary_doctor", "onset_date", "status", "management_plan", "monitoring_notes"]
+        widgets = {
+            "condition": forms.Select(attrs={"class": "form-select"}),
+            "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Hypertension, CKD, epilepsy"}),
+            "primary_doctor": forms.Select(attrs={"class": "form-select", "data-autocomplete": "doctor"}),
+            "status": forms.Select(attrs={"class": "form-select"}),
+            "management_plan": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Medication, monitoring cadence, care owner"}),
+            "monitoring_notes": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Control status, escalations, home monitoring"}),
+        }
+
+    def __init__(self, *args, hospital=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["condition"].queryset = ConditionCatalog.objects.filter(is_active=True)
+        doctor_queryset = Doctor.objects.select_related("user")
+        if hospital is not None:
+            doctor_queryset = doctor_queryset.filter(hospital=hospital)
+        self.fields["primary_doctor"].queryset = doctor_queryset.order_by("user__first_name", "user__last_name")
+        self.fields["primary_doctor"].required = False
+
+
+class FamilyMedicalHistoryForm(forms.ModelForm):
+    class Meta:
+        model = FamilyMedicalHistory
+        fields = ["condition", "condition_name", "relative", "relationship", "age_at_onset", "notes"]
+        widgets = {
+            "condition": forms.Select(attrs={"class": "form-select"}),
+            "condition_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Diabetes, breast cancer, stroke"}),
+            "relative": forms.TextInput(attrs={"class": "form-control", "placeholder": "Mother, father, sibling"}),
+            "relationship": forms.TextInput(attrs={"class": "form-control", "placeholder": "Maternal aunt, paternal grandfather"}),
+            "age_at_onset": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Pattern, age notes, genetic concern"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["condition"].queryset = ConditionCatalog.objects.filter(is_active=True)
+        self.fields["condition"].required = False
+
+
+class SurgicalHistoryForm(forms.ModelForm):
+    procedure_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    class Meta:
+        model = SurgicalHistory
+        fields = ["procedure_name", "procedure_date", "surgeon_name", "facility_name", "outcome", "complications", "notes"]
+        widgets = {
+            "procedure_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Appendectomy, C-section, ORIF"}),
+            "surgeon_name": forms.TextInput(attrs={"class": "form-control"}),
+            "facility_name": forms.TextInput(attrs={"class": "form-control"}),
+            "outcome": forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Recovered well, prolonged stay, outpatient follow-up"}),
+            "complications": forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Bleeding, infection, none"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class ConsentFormRecordForm(forms.ModelForm):
+    signed_at = forms.DateTimeField(
+        required=False,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
+    )
+    expires_at = forms.DateTimeField(
+        required=False,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
+    )
+
+    class Meta:
+        model = ConsentForm
+        fields = ["title", "procedure_name", "status", "document", "signed_by_name", "signed_relationship", "witnessed_by", "signed_at", "expires_at", "notes"]
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "Procedure consent, blood transfusion consent"}),
+            "procedure_name": forms.TextInput(attrs={"class": "form-control"}),
+            "status": forms.Select(attrs={"class": "form-select"}),
+            "document": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "signed_by_name": forms.TextInput(attrs={"class": "form-control"}),
+            "signed_relationship": forms.TextInput(attrs={"class": "form-control"}),
+            "witnessed_by": forms.TextInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class DocumentForm(forms.ModelForm):
+    class Meta:
+        model = Document
+        fields = ["category", "title", "file", "summary", "is_sensitive"]
+        widgets = {
+            "category": forms.Select(attrs={"class": "form-select"}),
+            "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "Discharge summary, referral letter, insurer note"}),
+            "file": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "summary": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Quick note for what this document contains"}),
+            "is_sensitive": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = DocumentCategory.objects.all().order_by("name")
+        self.fields["category"].required = False
+
+
+class MedicalImageForm(forms.ModelForm):
+    captured_at = forms.DateTimeField(
+        required=False,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
+    )
+
+    class Meta:
+        model = MedicalImage
+        fields = ["title", "modality", "image", "dicom_identifier", "study_uid", "captured_at", "notes"]
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "Chest X-ray, MRI brain, CT angiography"}),
+            "modality": forms.Select(attrs={"class": "form-select"}),
+            "image": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "dicom_identifier": forms.TextInput(attrs={"class": "form-control"}),
+            "study_uid": forms.TextInput(attrs={"class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Technique notes, interpretation summary, imaging request context"}),
+        }
 
 
 class ShiftHandoverForm(forms.ModelForm):

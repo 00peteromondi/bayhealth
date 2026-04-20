@@ -1319,6 +1319,16 @@ body.assistant-chat-compact .assistant-composer {
     background: rgba(255, 255, 255, 0.92);
 }
 
+.card,
+.soft-section,
+.feature-card,
+.metric-card,
+.profile-expand-card,
+.metric-overview-card,
+.module-card {
+    backdrop-filter: blur(16px);
+}
+
 .banner-card {
     background:
         linear-gradient(135deg, rgba(47, 126, 121, 0.95), rgba(18, 49, 69, 0.95)),
@@ -1421,6 +1431,130 @@ body.assistant-chat-compact .assistant-composer {
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--bh-ink-soft);
+}
+
+.metric-spotlight-source {
+    display: none !important;
+}
+
+.metric-spotlight {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.9fr);
+    gap: 1rem;
+    align-items: stretch;
+    margin-bottom: 1.5rem;
+}
+
+.metric-spotlight-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    min-height: 100%;
+    padding: 1.4rem 1.5rem;
+    border-radius: 1.6rem;
+    text-decoration: none;
+    color: inherit;
+    background:
+        linear-gradient(135deg, rgba(31, 95, 109, 0.96), rgba(47, 126, 121, 0.88)),
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%);
+    box-shadow: 0 22px 44px rgba(19, 54, 76, 0.18);
+}
+
+.metric-spotlight-card-icon {
+    width: 4rem;
+    height: 4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.2rem;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 1.5rem;
+}
+
+.metric-spotlight-card-copy {
+    min-width: 0;
+    color: #fff;
+}
+
+.metric-spotlight-card-label {
+    font-size: 0.84rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.metric-spotlight-card-value {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    line-height: 1.02;
+    margin: 0.45rem 0 0.6rem;
+}
+
+.metric-spotlight-card-note {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.92rem;
+}
+
+.metric-spotlight-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.72rem;
+    align-content: flex-start;
+}
+
+.metric-spotlight-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: min(100%, 15rem);
+    padding: 0.9rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(21, 49, 71, 0.08);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--bh-ink);
+    text-decoration: none;
+    box-shadow: 0 14px 28px rgba(15, 44, 64, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.metric-spotlight-pill:hover,
+.metric-spotlight-pill:focus-visible,
+.metric-spotlight-pill.is-active {
+    transform: translateY(-1px);
+    border-color: rgba(47, 126, 121, 0.3);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 247, 0.95));
+    box-shadow: 0 18px 34px rgba(15, 44, 64, 0.1);
+}
+
+.metric-spotlight-pill-icon {
+    width: 2.6rem;
+    height: 2.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.9rem;
+    background: rgba(47, 126, 121, 0.08);
+    color: var(--bh-primary-deep);
+    flex-shrink: 0;
+}
+
+.metric-spotlight-pill-copy {
+    display: grid;
+    min-width: 0;
+}
+
+.metric-spotlight-pill-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--bh-ink-soft);
+}
+
+.metric-spotlight-pill-value {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--bh-ink);
 }
 
 @media (max-width: 575.98px) {
@@ -2154,16 +2288,189 @@ label {
 .form-select {
     min-height: 2.9rem;
     color: var(--bh-ink);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 248, 0.92));
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
 
 .form-control:focus,
 .form-select:focus {
     border-color: rgba(47, 126, 121, 0.45);
     box-shadow: 0 0 0 0.2rem rgba(143, 211, 193, 0.2);
+    background: rgba(255, 255, 255, 0.99);
 }
 
 textarea.form-control {
     min-height: 7.5rem;
+}
+
+.form-control::placeholder {
+    color: rgba(92, 113, 133, 0.72);
+}
+
+.bh-form-panel,
+.bh-query-panel {
+    padding: 1.05rem;
+    border: 1px solid rgba(21, 49, 71, 0.08);
+    border-radius: 1.25rem;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 250, 249, 0.94)),
+        radial-gradient(circle at top right, rgba(143, 211, 193, 0.12), transparent 34%);
+    box-shadow: 0 18px 36px rgba(18, 42, 63, 0.07);
+}
+
+.bh-query-panel {
+    position: relative;
+    overflow: hidden;
+}
+
+.bh-query-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 0.16rem;
+    background: linear-gradient(90deg, rgba(47, 126, 121, 0.78), rgba(143, 211, 193, 0.18), transparent);
+}
+
+.bh-query-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.9rem;
+    align-items: end;
+}
+
+.bh-query-grid-tight {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.bh-query-field {
+    grid-column: span 3;
+    min-width: 0;
+}
+
+.bh-query-field-wide {
+    grid-column: span 6;
+}
+
+.bh-query-field label {
+    display: block;
+    margin-bottom: 0.42rem;
+}
+
+.bh-query-actions {
+    grid-column: span 3;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    align-items: end;
+    justify-content: flex-start;
+}
+
+.bh-query-inline {
+    width: min(100%, 42rem);
+}
+
+.bh-search-shell {
+    position: relative;
+}
+
+.bh-search-shell > i {
+    position: absolute;
+    inset: 50% auto auto 1rem;
+    transform: translateY(-50%);
+    color: rgba(47, 126, 121, 0.78);
+    font-size: 0.95rem;
+    pointer-events: none;
+}
+
+.bh-search-shell .form-control {
+    padding-left: 2.7rem;
+}
+
+.auth-form .form-control,
+.auth-form .form-select,
+.bh-form-panel .form-control,
+.bh-form-panel .form-select,
+.bh-query-panel .form-control,
+.bh-query-panel .form-select,
+.entity-search-shell .form-control,
+.autocomplete-shell .form-select {
+    min-height: 3rem;
+    border-radius: 0.95rem;
+    border-color: rgba(21, 49, 71, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 250, 0.92));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.auth-form .form-control:focus,
+.auth-form .form-select:focus,
+.bh-form-panel .form-control:focus,
+.bh-form-panel .form-select:focus,
+.bh-query-panel .form-control:focus,
+.bh-query-panel .form-select:focus,
+.entity-search-shell .form-control:focus,
+.autocomplete-shell .form-select:focus {
+    border-color: rgba(47, 126, 121, 0.42);
+    box-shadow: 0 0 0 0.2rem rgba(143, 211, 193, 0.22);
+}
+
+.record-stack {
+    display: grid;
+    gap: 0.8rem;
+    max-height: 24rem;
+    overflow: auto;
+    padding-right: 0.2rem;
+}
+
+.record-stack.compact {
+    max-height: 18rem;
+}
+
+.bh-form-panel .form-check-input,
+.bh-query-panel .form-check-input {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 0.35rem;
+    border-color: rgba(21, 49, 71, 0.16);
+}
+
+.bh-form-panel .form-check-input:checked,
+.bh-query-panel .form-check-input:checked {
+    background-color: var(--bh-primary);
+    border-color: var(--bh-primary);
+}
+
+.bh-query-panel .bh-btn,
+.bh-form-panel .bh-btn {
+    min-height: 2.75rem;
+}
+
+.invitation-highlight {
+    background: linear-gradient(135deg, rgba(47, 126, 121, 0.16), rgba(143, 211, 193, 0.24));
+    border-radius: 1.35rem;
+    box-shadow: 0 18px 34px rgba(31, 95, 109, 0.12);
+}
+
+.invitation-guard-copy {
+    background: linear-gradient(180deg, rgba(242, 251, 248, 0.96), rgba(255, 255, 255, 0.94));
+}
+
+@media (max-width: 991.98px) {
+    .bh-query-grid,
+    .bh-query-grid-tight {
+        grid-template-columns: 1fr;
+    }
+
+    .bh-query-field,
+    .bh-query-field-wide,
+    .bh-query-actions {
+        grid-column: auto;
+    }
+
+    .metric-spotlight {
+        grid-template-columns: 1fr;
+    }
 }
 
 form p {
@@ -2523,6 +2830,16 @@ form .helptext,
     gap: 0.12rem;
 }
 
+.form-field-stack label,
+.bh-query-field label,
+.auth-form .form-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bh-ink-soft);
+}
+
 .auth-stack {
     gap: 0.62rem;
 }
@@ -2605,6 +2922,7 @@ form .helptext,
 .autocomplete-shell,
 .entity-search-shell {
     position: relative;
+    border-radius: 1rem;
 }
 
 .entity-search-list {
@@ -2624,6 +2942,14 @@ form .helptext,
     box-shadow: 0 20px 40px rgba(6, 20, 31, 0.14);
     scrollbar-width: thin;
     scrollbar-color: rgba(47, 126, 121, 0.24) transparent;
+}
+
+.autocomplete-list,
+.entity-search-list {
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(21, 49, 71, 0.09);
+    box-shadow: 0 20px 40px rgba(6, 20, 31, 0.14);
 }
 
 .entity-search-list::-webkit-scrollbar {
