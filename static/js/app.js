@@ -123,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function clearInlineFormErrors(form) {
         if (!form) return;
         form.querySelectorAll("[data-inline-form-error]").forEach((node) => node.remove());
+        form.querySelectorAll("[data-inline-form-error-summary]").forEach((node) => node.remove());
     }
 
     function getFormActionUrl(form, fallback = window.location.href) {
@@ -145,7 +146,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function showInlineFormErrors(form, errors) {
         if (!form || !errors) return;
+        const summaryErrors = [];
         Object.entries(errors).forEach(([name, messages]) => {
+            if (name === "__all__" || name === "non_field_errors") {
+                summaryErrors.push(...(Array.isArray(messages) ? messages : [String(messages || "")]));
+                return;
+            }
             const field = form.querySelector(`[name="${escapeSelector(name)}"]`);
             if (!field) return;
             const stack = field.closest(".form-field-stack") || field.closest(".form-check") || field.parentElement;
@@ -156,6 +162,21 @@ document.addEventListener("DOMContentLoaded", () => {
             errorNode.textContent = Array.isArray(messages) ? messages.join(" ") : String(messages || "");
             stack.appendChild(errorNode);
         });
+        if (summaryErrors.length) {
+            const summaryNode = document.createElement("div");
+            summaryNode.className = "bh-form-error";
+            summaryNode.setAttribute("data-inline-form-error-summary", "1");
+            summaryNode.textContent = summaryErrors.join(" ");
+            const anchor = form.querySelector(".form-field-stack") || form.querySelector(".row") || form.firstElementChild || form;
+            anchor.parentNode?.insertBefore(summaryNode, anchor);
+        }
+    }
+
+    function parseRefreshSelectors(value = "") {
+        return String(value || "")
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
     }
 
     function debounce(callback, delay = 300) {
@@ -676,6 +697,47 @@ document.addEventListener("DOMContentLoaded", () => {
         return nextRoot;
     }
 
+    function replaceLiveSectionsWithHtml(html, selectors = [], options = {}) {
+        if (!selectors.length) return [];
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const replaced = [];
+        selectors.forEach((selector) => {
+            const currentNodes = Array.from(document.querySelectorAll(selector));
+            const nextNodes = Array.from(doc.querySelectorAll(selector));
+            if (!currentNodes.length || currentNodes.length !== nextNodes.length) return;
+            currentNodes.forEach((currentNode, index) => {
+                if (!options.force && hasProtectedLiveRefreshState(currentNode)) {
+                    return;
+                }
+                const nextNode = nextNodes[index];
+                if (!nextNode) return;
+                currentNode.replaceWith(nextNode);
+                replaced.push(nextNode);
+            });
+        });
+        if (replaced.length) {
+            rehydrateLivePageFeatures();
+        }
+        return replaced;
+    }
+
+    async function refreshLiveSections(selectors = [], options = {}) {
+        const normalized = Array.isArray(selectors) ? selectors.filter(Boolean) : parseRefreshSelectors(selectors);
+        if (!normalized.length) return [];
+        try {
+            const response = await fetch(window.location.href, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+                credentials: "same-origin",
+            });
+            if (!response.ok) return [];
+            const html = await response.text();
+            return replaceLiveSectionsWithHtml(html, normalized, options);
+        } catch (_) {
+            return [];
+        }
+    }
+
     let liveRootRefreshPending = false;
     let liveRootRefreshRetryTimer = null;
 
@@ -793,7 +855,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 liveRootRefreshRetryTimer = null;
             }
             const scrollPosition = window.scrollY || 0;
-            const response = await fetch(window.location.href, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            const response = await fetch(window.location.href, { headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" });
             if (!response.ok) return null;
             const html = await response.text();
             const nextRoot = replaceLivePageRootWithHtml(html);
@@ -2232,10 +2294,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (form.dataset.shiftStaffBound === "1") return;
             const url = form.dataset.shiftStaffUrl;
             const staffSelect = form.querySelector('select[name="staff"][data-shift-staff-select]');
-            const shiftDate = form.querySelector('input[name="shift_date"]');
-            const startTime = form.querySelector('input[name="start_time"]');
-            const endTime = form.querySelector('input[name="end_time"]');
-            if (!url || !staffSelect || !shiftDate) return;
+            const startAt = form.querySelector('input[name="start_at"]');
+            const endAt = form.querySelector('input[name="end_at"]');
+            if (!url || !staffSelect || !startAt) return;
 
             const wrapper = staffSelect.closest(".autocomplete-shell");
             const searchInput = wrapper?.querySelector(".autocomplete-search");
@@ -2244,9 +2305,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const syncEligibleStaff = async () => {
                 const token = ++requestToken;
                 const params = new URLSearchParams();
-                if (shiftDate.value) params.set("shift_date", shiftDate.value);
-                if (startTime?.value) params.set("start_time", startTime.value);
-                if (endTime?.value) params.set("end_time", endTime.value);
+                if (startAt.value) params.set("start_at", startAt.value);
+                if (endAt?.value) params.set("end_at", endAt.value);
                 if (searchInput?.value?.trim()) params.set("q", searchInput.value.trim());
 
                 try {
@@ -2296,7 +2356,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 form._shiftStaffTimer = window.setTimeout(syncEligibleStaff, 140);
             };
 
-            [shiftDate, startTime, endTime].forEach((field) => {
+            [startAt, endAt].forEach((field) => {
                 field?.addEventListener("change", scheduleSync);
                 field?.addEventListener("input", scheduleSync);
             });
@@ -3244,21 +3304,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (hospitalLiveId) {
         const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
         const socketUrl = `${wsScheme}://${window.location.host}/ws/hospital/${hospitalLiveId}/`;
-        const scheduleHospitalRefresh = () => {
+        const hospitalSectionMap = {
+            shift_assignment_created: ['[data-live-section="admin-shifts"]', '[data-live-section="ops-shifts"]'],
+            invitation_created: ['[data-live-section="admin-invitations"]'],
+            invitation_updated: ['[data-live-section="admin-invitations"]'],
+            invitation_redeemed: ['[data-live-section="admin-invitations"]'],
+        };
+        const scheduleHospitalRefresh = (payload = {}) => {
             window.clearTimeout(hospitalLiveRefreshTimer);
             hospitalLiveRefreshTimer = window.setTimeout(async () => {
                 if (typeof refreshLiveDashboardState === "function") {
                     await refreshLiveDashboardState();
                 }
-                if (typeof refreshCurrentPageLiveRoot === "function") {
-                    await refreshCurrentPageLiveRoot();
+                const selectors = hospitalSectionMap[payload.event_type] || [];
+                if (selectors.length) {
+                    await refreshLiveSections(selectors, { force: false });
                 }
             }, 180);
         };
         try {
             hospitalLiveSocket = new WebSocket(socketUrl);
-            hospitalLiveSocket.onmessage = function() {
-                scheduleHospitalRefresh();
+            hospitalLiveSocket.onmessage = function(event) {
+                let payload = {};
+                try {
+                    payload = JSON.parse(event.data || "{}");
+                } catch (_) {}
+                scheduleHospitalRefresh(payload);
             };
             hospitalLiveSocket.onclose = function() {
                 scheduleHospitalRefresh();
@@ -3417,6 +3488,7 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault();
             const submitter = event.submitter || form.querySelector("button[type='submit']");
             const actionUrl = getFormActionUrl(form, window.location.pathname);
+            const refreshSelectors = parseRefreshSelectors(form.dataset.refreshSections);
             withBusyButton(submitter, "", async () => {
                 const url = new URL(actionUrl, window.location.origin);
                 const params = new URLSearchParams(new FormData(form));
@@ -3438,7 +3510,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 const html = await response.text().catch(() => "");
-                const swapped = html ? replaceLivePageRootWithHtml(html) : null;
+                const replaced = refreshSelectors.length ? replaceLiveSectionsWithHtml(html, refreshSelectors, { force: true }) : [];
+                const swapped = replaced.length ? replaced[0] : (html ? replaceLivePageRootWithHtml(html) : null);
                 if (!swapped) {
                     window.location.href = url.toString();
                     return;
@@ -3455,6 +3528,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const button = form.querySelector("button[type='submit']");
             const behavior = form.dataset.asyncBehavior || "";
             const actionUrl = getFormActionUrl(form);
+            const refreshSelectors = parseRefreshSelectors(form.dataset.refreshSections);
             withBusyButton(button, "", async () => {
                 const response = await fetch(actionUrl, {
                     method: "POST",
@@ -3558,7 +3632,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 } else if (behavior === "live-root-refresh") {
-                    if (typeof refreshCurrentPageLiveRoot === "function") {
+                    if (refreshSelectors.length) {
+                        const replaced = await refreshLiveSections(refreshSelectors, { force: true });
+                        if (!replaced.length) {
+                            window.location.reload();
+                            return;
+                        }
+                    } else if (typeof refreshCurrentPageLiveRoot === "function") {
                         form.dataset.liveRefreshAllow = "1";
                         let refreshed = null;
                         try {
@@ -3588,14 +3668,11 @@ document.addEventListener("DOMContentLoaded", () => {
         refreshLiveDashboardState = async () => {
             if (document.hidden || !endpoint) return;
             try {
-                const response = await fetch(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+                const response = await fetch(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" });
                 if (!response.ok) return;
                 const payload = await response.json();
                 applyLiveMetrics(payload.metrics);
                 applyBayafyaWatchItems(payload.watch_items);
-                if (typeof refreshCurrentPageLiveRoot === "function") {
-                    await refreshCurrentPageLiveRoot();
-                }
                 return payload;
             } catch (_) {
                 return null;

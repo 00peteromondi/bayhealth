@@ -2873,6 +2873,17 @@ form .helptext,
     font-weight: 600;
 }
 
+.bh-form-error {
+    display: block;
+    padding: 0.8rem 0.95rem;
+    border-radius: 0.85rem;
+    background: rgba(218, 91, 102, 0.1);
+    border: 1px solid rgba(218, 91, 102, 0.14);
+    color: #9d2f3d;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .auth-form .form-control,
 .auth-form .form-select {
     background: rgba(255, 255, 255, 0.96);
@@ -3418,7 +3429,30 @@ form .helptext,
 }
 
 @media (max-width: 575.98px) {
+    .auth-page-shell {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .auth-card,
+    .auth-card .row,
+    .auth-form-panel,
+    .auth-carousel-shell,
+    .auth-carousel-card {
+        min-width: 0;
+    }
+
+    .auth-inline-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .auth-inline-actions .bh-btn {
+        width: 100%;
+    }
+
     .email-verification-code-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 0.35rem;
     }
 

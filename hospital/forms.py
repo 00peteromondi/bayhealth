@@ -931,13 +931,18 @@ class ShiftHandoverForm(forms.ModelForm):
 
 class ShiftAssignmentForm(forms.ModelForm):
     DEFAULT_WEEKLY_LIMIT_HOURS = 48
-    shift_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    start_at = forms.DateTimeField(
+        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local", "class": "form-control"}),
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"],
+    )
+    end_at = forms.DateTimeField(
+        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local", "class": "form-control"}),
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"],
     )
 
     class Meta:
         model = ShiftAssignment
-        fields = ["staff", "shift_date", "start_time", "end_time", "notes"]
+        fields = ["staff", "start_at", "end_at", "notes"]
         widgets = {
             "staff": forms.Select(
                 attrs={
@@ -946,38 +951,30 @@ class ShiftAssignmentForm(forms.ModelForm):
                     "data-shift-staff-select": "1",
                 }
             ),
-            "start_time": forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
-            "end_time": forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
     def __init__(self, *args, hospital=None, **kwargs):
         super().__init__(*args, **kwargs)
-        shift_date = None
-        start_time = None
-        end_time = None
+        start_at = None
+        end_at = None
         if self.is_bound:
-            shift_date = self.data.get("shift_date") or None
-            start_time = self.data.get("start_time") or None
-            end_time = self.data.get("end_time") or None
             try:
-                shift_date = datetime.strptime(shift_date, "%Y-%m-%d").date() if shift_date else None
+                start_value = self.data.get("start_at") or None
+                start_at = timezone.make_aware(datetime.fromisoformat(start_value)) if start_value else None
             except (TypeError, ValueError):
-                shift_date = None
+                start_at = None
             try:
-                start_time = datetime.strptime(start_time, "%H:%M").time() if start_time else None
+                end_value = self.data.get("end_at") or None
+                end_at = timezone.make_aware(datetime.fromisoformat(end_value)) if end_value else None
             except (TypeError, ValueError):
-                start_time = None
-            try:
-                end_time = datetime.strptime(end_time, "%H:%M").time() if end_time else None
-            except (TypeError, ValueError):
-                end_time = None
-        shift_date = shift_date or self.initial.get("shift_date") or timezone.localdate()
+                end_at = None
+        start_at = start_at or self.initial.get("start_at") or timezone.localtime(timezone.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
+        end_at = end_at or self.initial.get("end_at") or (start_at + timedelta(hours=8) if start_at else None)
         eligible_queryset = eligible_shift_staff_queryset(
             hospital=hospital,
-            shift_date=shift_date,
-            start_time=start_time,
-            end_time=end_time,
+            start_at=start_at,
+            end_at=end_at,
             exclude_assignment_id=self.instance.pk,
             weekly_limit_hours=self.DEFAULT_WEEKLY_LIMIT_HOURS,
         )
@@ -985,42 +982,38 @@ class ShiftAssignmentForm(forms.ModelForm):
         self.fields["staff"].label_from_instance = (
             lambda staff: format_shift_staff_label(
                 staff,
-                shift_date=shift_date,
+                start_at=start_at,
                 weekly_limit_hours=self.DEFAULT_WEEKLY_LIMIT_HOURS,
             )
         )
-        self.fields["shift_date"].initial = timezone.localdate()
+        self.fields["start_at"].label = "Shift start"
+        self.fields["end_at"].label = "Shift end"
+        self.fields["start_at"].initial = start_at
+        self.fields["end_at"].initial = end_at
 
     def clean(self):
         cleaned = super().clean()
         staff = cleaned.get("staff")
-        shift_date = cleaned.get("shift_date")
-        start = cleaned.get("start_time")
-        end = cleaned.get("end_time")
-        if start and end and end <= start:
-            raise forms.ValidationError("Shift end time must be later than the start time.")
-        if shift_date and shift_date < timezone.localdate():
-            raise forms.ValidationError("Shift assignments cannot be created in the past.")
-        if staff and shift_date and start and end:
+        start_at = cleaned.get("start_at")
+        end_at = cleaned.get("end_at")
+        if start_at and end_at and end_at <= start_at:
+            raise forms.ValidationError("Shift end must be later than the shift start.")
+        if start_at and start_at < timezone.now():
+            raise forms.ValidationError("Shift assignments cannot start in the past.")
+        if staff and start_at and end_at:
             conflicts = ShiftAssignment.objects.filter(
                 staff=staff,
-                shift_date=shift_date,
-                start_time__lt=end,
-                end_time__gt=start,
+                start_at__lt=end_at,
+                end_at__gt=start_at,
             )
             if self.instance.pk:
                 conflicts = conflicts.exclude(pk=self.instance.pk)
             if conflicts.exists():
                 raise forms.ValidationError("This staff member already has an overlapping shift in the selected period.")
-            proposed_hours = max(
-                0,
-                (
-                    datetime.combine(shift_date, end) - datetime.combine(shift_date, start)
-                ).total_seconds() / 3600,
-            )
+            proposed_hours = max(0, (end_at - start_at).total_seconds() / 3600)
             weekly_hours = scheduled_shift_hours_for_week(
                 staff,
-                shift_date,
+                start_at,
                 exclude_assignment_id=self.instance.pk,
             )
             if weekly_hours + proposed_hours > self.DEFAULT_WEEKLY_LIMIT_HOURS:
@@ -1031,38 +1024,45 @@ class ShiftAssignmentForm(forms.ModelForm):
         return cleaned
 
 
-def shift_week_bounds(shift_date):
-    shift_date = shift_date or timezone.localdate()
-    start = shift_date - timedelta(days=shift_date.weekday())
-    end = start + timedelta(days=6)
+def shift_week_bounds(shift_point):
+    shift_point = timezone.localtime(shift_point) if shift_point else timezone.localtime(timezone.now())
+    week_start_date = shift_point.date() - timedelta(days=shift_point.weekday())
+    start = timezone.make_aware(datetime.combine(week_start_date, datetime.min.time()))
+    end = start + timedelta(days=7)
     return start, end
 
 
-def shift_assignment_hours(assignment):
-    if not assignment.start_time or not assignment.end_time:
+def shift_hours_within_window(start_at, end_at, window_start, window_end):
+    if not start_at or not end_at:
         return 0
-    start_dt = datetime.combine(assignment.shift_date, assignment.start_time)
-    end_dt = datetime.combine(assignment.shift_date, assignment.end_time)
-    return max(0, (end_dt - start_dt).total_seconds() / 3600)
+    overlap_start = max(start_at, window_start)
+    overlap_end = min(end_at, window_end)
+    if overlap_end <= overlap_start:
+        return 0
+    return max(0, (overlap_end - overlap_start).total_seconds() / 3600)
 
 
-def scheduled_shift_hours_for_week(staff, shift_date, *, exclude_assignment_id=None):
-    week_start, week_end = shift_week_bounds(shift_date)
+def shift_assignment_hours(assignment):
+    return shift_hours_within_window(assignment.local_start_at, assignment.local_end_at, assignment.local_start_at, assignment.local_end_at)
+
+
+def scheduled_shift_hours_for_week(staff, shift_point, *, exclude_assignment_id=None):
+    week_start, week_end = shift_week_bounds(shift_point)
     assignments = ShiftAssignment.objects.filter(
         staff=staff,
-        shift_date__range=(week_start, week_end),
+        start_at__lt=week_end,
+        end_at__gt=week_start,
     )
     if exclude_assignment_id:
         assignments = assignments.exclude(pk=exclude_assignment_id)
-    return sum(shift_assignment_hours(item) for item in assignments)
+    return sum(shift_hours_within_window(item.local_start_at, item.local_end_at, week_start, week_end) for item in assignments)
 
 
 def eligible_shift_staff_queryset(
     *,
     hospital,
-    shift_date,
-    start_time=None,
-    end_time=None,
+    start_at,
+    end_at=None,
     exclude_assignment_id=None,
     weekly_limit_hours=ShiftAssignmentForm.DEFAULT_WEEKLY_LIMIT_HOURS,
     query="",
@@ -1087,17 +1087,16 @@ def eligible_shift_staff_queryset(
     for staff in queryset.order_by("role", "user__first_name", "user__last_name", "employee_id"):
         weekly_hours = scheduled_shift_hours_for_week(
             staff,
-            shift_date,
+            start_at,
             exclude_assignment_id=exclude_assignment_id,
         )
         if weekly_hours >= weekly_limit_hours:
             continue
-        if shift_date and start_time and end_time:
+        if start_at and end_at:
             conflicts = ShiftAssignment.objects.filter(
                 staff=staff,
-                shift_date=shift_date,
-                start_time__lt=end_time,
-                end_time__gt=start_time,
+                start_at__lt=end_at,
+                end_at__gt=start_at,
             )
             if exclude_assignment_id:
                 conflicts = conflicts.exclude(pk=exclude_assignment_id)
@@ -1107,8 +1106,8 @@ def eligible_shift_staff_queryset(
     return queryset.filter(pk__in=eligible_ids).order_by("role", "user__first_name", "user__last_name", "employee_id")
 
 
-def format_shift_staff_label(staff, *, shift_date, weekly_limit_hours=ShiftAssignmentForm.DEFAULT_WEEKLY_LIMIT_HOURS):
-    weekly_hours = scheduled_shift_hours_for_week(staff, shift_date)
+def format_shift_staff_label(staff, *, start_at, weekly_limit_hours=ShiftAssignmentForm.DEFAULT_WEEKLY_LIMIT_HOURS):
+    weekly_hours = scheduled_shift_hours_for_week(staff, start_at)
     remaining = max(weekly_limit_hours - weekly_hours, 0)
     return (
         f"{staff.user.get_full_name() or staff.user.username} • "

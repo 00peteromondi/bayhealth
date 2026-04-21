@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from core.models import User
 
-from .models import AdvanceDirective, Allergy, Appointment, CaregiverAccess, ChronicCondition, ConditionCatalog, Doctor, FamilyMedicalHistory, Hospital, HospitalAccess, HospitalInvitation, Immunization, LabTestRequest, MedicalRecord, Patient, PatientCondition, PatientFeedback, PharmacyTask, WalkInEncounter
+from .models import AdvanceDirective, Allergy, Appointment, CaregiverAccess, ChronicCondition, ConditionCatalog, Doctor, FamilyMedicalHistory, Hospital, HospitalAccess, HospitalInvitation, Immunization, LabTestRequest, MedicalRecord, Patient, PatientCondition, PatientFeedback, PharmacyTask, ShiftAssignment, WalkInEncounter
 
 
 class HospitalTests(TestCase):
@@ -327,3 +327,78 @@ class HospitalTests(TestCase):
         self.assertTrue(invitation.is_active)
         self.assertIsNone(invitation.revoked_by)
         self.assertIsNone(invitation.revoked_at)
+
+    def test_shift_assignment_supports_overnight_shift_via_async_create(self):
+        hospital = Hospital.objects.create(name="Night Shift Hospital", code="night-shift-hospital", owner=self.doctor_user)
+        HospitalAccess.objects.create(user=self.doctor_user, hospital=hospital, role=HospitalAccess.Role.OWNER, is_primary=True)
+        nurse_user = User.objects.create_user(username="nightnurse", password="SafePass123!", role=User.Role.NURSE)
+        HospitalAccess.objects.create(user=nurse_user, hospital=hospital, role=HospitalAccess.Role.NURSE, is_primary=True)
+        staff_profile = nurse_user.staff_profile
+        staff_profile.hospital = hospital
+        staff_profile.hourly_rate = 18
+        staff_profile.save()
+
+        self.client.login(username="doctor", password="SafePass123!")
+        session = self.client.session
+        session["current_hospital_id"] = hospital.id
+        session.save()
+
+        start_at = timezone.localtime(timezone.now() + timedelta(days=1)).replace(hour=22, minute=0, second=0, microsecond=0)
+        end_at = start_at + timedelta(hours=8)
+        response = self.client.post(
+            reverse("hospital:create_shift_assignment"),
+            {
+                "staff": staff_profile.pk,
+                "start_at": start_at.strftime("%Y-%m-%dT%H:%M"),
+                "end_at": end_at.strftime("%Y-%m-%dT%H:%M"),
+                "notes": "Night cover for ward escalation.",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        assignment = ShiftAssignment.objects.get()
+        self.assertEqual(assignment.shift_date, start_at.date())
+        self.assertEqual(timezone.localtime(assignment.start_at), start_at)
+        self.assertEqual(timezone.localtime(assignment.end_at), end_at)
+        self.assertEqual(assignment.start_time.hour, 22)
+        self.assertEqual(assignment.end_time.hour, 6)
+
+    def test_overnight_shift_blocks_overlapping_eligible_staff_window(self):
+        hospital = Hospital.objects.create(name="Overlap Shift Hospital", code="overlap-shift-hospital", owner=self.doctor_user)
+        HospitalAccess.objects.create(user=self.doctor_user, hospital=hospital, role=HospitalAccess.Role.OWNER, is_primary=True)
+        nurse_user = User.objects.create_user(username="overlapnurse", password="SafePass123!", role=User.Role.NURSE)
+        HospitalAccess.objects.create(user=nurse_user, hospital=hospital, role=HospitalAccess.Role.NURSE, is_primary=True)
+        staff_profile = nurse_user.staff_profile
+        staff_profile.hospital = hospital
+        staff_profile.save()
+
+        start_at = timezone.localtime(timezone.now() + timedelta(days=1)).replace(hour=22, minute=0, second=0, microsecond=0)
+        end_at = start_at + timedelta(hours=8)
+        ShiftAssignment.objects.create(
+            staff=staff_profile,
+            hospital=hospital,
+            start_at=start_at,
+            end_at=end_at,
+            shift_date=start_at.date(),
+            start_time=start_at.time(),
+            end_time=end_at.time(),
+        )
+
+        self.client.login(username="doctor", password="SafePass123!")
+        session = self.client.session
+        session["current_hospital_id"] = hospital.id
+        session.save()
+
+        response = self.client.get(
+            reverse("hospital:eligible_shift_staff"),
+            {
+                "start_at": (start_at + timedelta(hours=7)).strftime("%Y-%m-%dT%H:%M"),
+                "end_at": (start_at + timedelta(hours=11)).strftime("%Y-%m-%dT%H:%M"),
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        values = {item["value"] for item in response.json()["results"]}
+        self.assertNotIn(str(staff_profile.pk), values)

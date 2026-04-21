@@ -61,7 +61,7 @@ from .forms import (
     UserRegistrationForm,
 )
 from .models import AssistantAccessGrant, Notification, StaffConversation, StaffConversationParticipant, StaffMessage, User
-from .services import broadcast_staff_message, send_email_verification, send_user_notification
+from .services import broadcast_hospital_update, broadcast_staff_message, send_email_verification, send_user_notification
 
 
 def _build_dashboard_experience(user, stats):
@@ -1148,6 +1148,11 @@ def _complete_invitation_redemption(*, invitation, user, request, make_primary):
     invitation.redeemed_at = timezone.now()
     invitation.is_active = False
     invitation.save(update_fields=["redeemed_by", "redeemed_at", "is_active"])
+    broadcast_hospital_update(
+        invitation.hospital,
+        event_type="invitation_redeemed",
+        payload={"invitation_id": invitation.id, "user_id": user.id},
+    )
     user.pending_hospital_invitation = None
     user.save(update_fields=["pending_hospital_invitation"])
     return invitation
@@ -1373,8 +1378,16 @@ def profile(request):
             {"label": "Notifications", "icon": "bi-bell", "url": "notifications"},
         ]
         context["recent_items"] = [
-            {"title": shift.shift_date.strftime("%Y-%m-%d"), "subtitle": f"{shift.start_time} - {shift.end_time}", "status": shift.staff.get_role_display()}
-            for shift in ShiftAssignment.objects.filter(staff=staff).order_by("-shift_date")[:12]
+            {
+                "title": shift.local_start_at.strftime("%Y-%m-%d") if shift.local_start_at else shift.shift_date.strftime("%Y-%m-%d"),
+                "subtitle": (
+                    f"{shift.local_start_at:%d %b %Y %H:%M} - {shift.local_end_at:%d %b %Y %H:%M}"
+                    if shift.local_start_at and shift.local_end_at
+                    else f"{shift.start_time} - {shift.end_time}"
+                ),
+                "status": shift.staff.get_role_display(),
+            }
+            for shift in ShiftAssignment.objects.filter(staff=staff).order_by("-start_at", "-shift_date")[:12]
         ]
         context["certifications"] = staff.certifications.order_by("expires_on")[:4]
     elif user.role == User.Role.COUNSELOR:

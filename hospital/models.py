@@ -1,7 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from core.models import User
 
@@ -451,10 +452,75 @@ class WalkInEvent(models.Model):
 class ShiftAssignment(models.Model):
     staff = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, related_name="shifts")
     hospital = models.ForeignKey(Hospital, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts")
+    start_at = models.DateTimeField(null=True, blank=True)
+    end_at = models.DateTimeField(null=True, blank=True)
     shift_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
     notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["start_at", "shift_date", "start_time", "id"]
+
+    def __str__(self) -> str:
+        start_label = self.local_start_at.strftime("%Y-%m-%d %H:%M") if self.local_start_at else "unscheduled"
+        end_label = self.local_end_at.strftime("%Y-%m-%d %H:%M") if self.local_end_at else "unscheduled"
+        return f"{self.staff} • {start_label} → {end_label}"
+
+    @staticmethod
+    def _localize_value(value):
+        if not value:
+            return None
+        if timezone.is_naive(value):
+            return timezone.make_aware(value, timezone.get_current_timezone())
+        return timezone.localtime(value)
+
+    @property
+    def local_start_at(self):
+        if self.start_at:
+            return self._localize_value(self.start_at)
+        if self.shift_date and self.start_time:
+            return self._localize_value(datetime.combine(self.shift_date, self.start_time))
+        return None
+
+    @property
+    def local_end_at(self):
+        if self.end_at:
+            return self._localize_value(self.end_at)
+        if self.shift_date and self.end_time:
+            return self._localize_value(datetime.combine(self.shift_date, self.end_time))
+        return None
+
+    @property
+    def duration_hours(self) -> float:
+        start_at = self.local_start_at
+        end_at = self.local_end_at
+        if not start_at or not end_at:
+            return 0
+        return max(0, (end_at - start_at).total_seconds() / 3600)
+
+    def clean(self):
+        super().clean()
+        start_at = self.local_start_at
+        end_at = self.local_end_at
+        if start_at and end_at and end_at <= start_at:
+            raise ValidationError("Shift end must be later than shift start.")
+
+    def save(self, *args, **kwargs):
+        start_at = self.local_start_at
+        end_at = self.local_end_at
+        if start_at and end_at:
+            self.start_at = start_at
+            self.end_at = end_at
+            self.shift_date = start_at.date()
+            self.start_time = start_at.timetz().replace(tzinfo=None)
+            self.end_time = end_at.timetz().replace(tzinfo=None)
+        elif self.shift_date and self.start_time and self.end_time:
+            start_at = self._localize_value(datetime.combine(self.shift_date, self.start_time))
+            end_at = self._localize_value(datetime.combine(self.shift_date, self.end_time))
+            self.start_at = start_at
+            self.end_at = end_at
+        super().save(*args, **kwargs)
 
 
 class ShiftHandover(models.Model):

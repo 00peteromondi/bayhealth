@@ -724,6 +724,73 @@ def _patient_workspace_context(request, *, patient, hospital, accesses):
     }
 
 
+def _hospital_day_window(day=None):
+    day = day or timezone.localdate()
+    start = timezone.make_aware(datetime.combine(day, time.min))
+    end = start + timedelta(days=1)
+    return start, end
+
+
+def _humanize_duration(delta):
+    total_seconds = max(int(delta.total_seconds()), 0)
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes = max(remainder // 60, 0)
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or not parts:
+        parts.append(f"{minutes}m")
+    return " ".join(parts[:3])
+
+
+def _shift_overlap_hours(start_at, end_at, window_start, window_end):
+    if not start_at or not end_at:
+        return 0
+    overlap_start = max(start_at, window_start)
+    overlap_end = min(end_at, window_end)
+    if overlap_end <= overlap_start:
+        return 0
+    return max(0, (overlap_end - overlap_start).total_seconds() / 3600)
+
+
+def _decorate_shift_assignment(assignment, *, now=None):
+    now = timezone.localtime(now or timezone.now())
+    start_at = assignment.local_start_at
+    end_at = assignment.local_end_at
+    assignment.display_start_at = start_at
+    assignment.display_end_at = end_at
+    assignment.display_range = (
+        f"{start_at.strftime('%d %b %Y, %H:%M')} - {end_at.strftime('%d %b %Y, %H:%M')}"
+        if start_at and end_at
+        else "Schedule pending"
+    )
+    assignment.starts_in_label = ""
+    assignment.ends_in_label = ""
+    assignment.shift_state = "scheduled"
+    assignment.shift_state_label = "Scheduled"
+    if not start_at or not end_at:
+        return assignment
+    if now < start_at:
+        assignment.shift_state = "upcoming"
+        assignment.shift_state_label = f"Starts in {_humanize_duration(start_at - now)}"
+        assignment.starts_in_label = assignment.shift_state_label
+        assignment.ends_in_label = f"Ends in {_humanize_duration(end_at - now)}"
+    elif start_at <= now < end_at:
+        assignment.shift_state = "active"
+        assignment.shift_state_label = f"Ends in {_humanize_duration(end_at - now)}"
+        assignment.starts_in_label = "Shift in progress"
+        assignment.ends_in_label = assignment.shift_state_label
+    else:
+        assignment.shift_state = "ended"
+        assignment.shift_state_label = f"Ended {_humanize_duration(now - end_at)} ago"
+        assignment.starts_in_label = "Shift completed"
+        assignment.ends_in_label = assignment.shift_state_label
+    return assignment
+
+
 def _operations_workspace_context(request, *, active_access, hospital):
     role = active_access.role if active_access else ""
     hospital_scope = Hospital.objects.filter(id=hospital.id) if hospital else Hospital.objects.none()
@@ -736,7 +803,7 @@ def _operations_workspace_context(request, *, active_access, hospital):
     incidents = EmergencyIncident.objects.filter(hospital=hospital).select_related("created_by", "linked_request").order_by("status", "-created_at") if hospital else EmergencyIncident.objects.none()
     doctor_tasks = DoctorTask.objects.filter(hospital=hospital).select_related("patient__user", "assigned_to").order_by("status", "due_at", "-created_at") if hospital else DoctorTask.objects.none()
     care_plans = CarePlan.objects.filter(hospital=hospital).select_related("patient__user", "doctor__user").order_by("status", "-updated_at") if hospital else CarePlan.objects.none()
-    shift_assignments = ShiftAssignment.objects.filter(hospital=hospital).select_related("staff__user").order_by("-shift_date", "start_time") if hospital else ShiftAssignment.objects.none()
+    shift_assignments = ShiftAssignment.objects.filter(hospital=hospital).select_related("staff__user").order_by("start_at", "id") if hospital else ShiftAssignment.objects.none()
     low_stock = Medicine.objects.filter(stock_quantity__lte=20).order_by("stock_quantity", "name")[:8]
     active_dispatches = AmbulanceRequest.objects.exclude(status=AmbulanceRequest.Status.COMPLETED).order_by("-created_at")[:8]
 
@@ -771,27 +838,28 @@ def _operations_workspace_context(request, *, active_access, hospital):
         role_title = "Emergency workbench"
         role_summary = "Coordinate incidents, dispatches, and critical arrivals with real-time hospital context."
 
+    now = timezone.localtime(timezone.now())
     today = timezone.localdate()
-    todays_shift_assignments = shift_assignments.filter(shift_date=today)
-    filtered_shift_assignments = shift_assignments.filter(shift_date__range=(shift_start, shift_end))
+    today_start, tomorrow_start = _hospital_day_window(today)
+    filter_start, _ = _hospital_day_window(shift_start)
+    filter_end = _hospital_day_window(shift_end + timedelta(days=1))[0]
+    todays_shift_assignments = shift_assignments.filter(start_at__lt=tomorrow_start, end_at__gt=today_start)
+    filtered_shift_assignments = shift_assignments.filter(start_at__lt=filter_end, end_at__gt=filter_start)
     staff_shift_assignments = (
-        filtered_shift_assignments.filter(staff=staff_profile).order_by("shift_date", "start_time")
+        filtered_shift_assignments.filter(staff=staff_profile, end_at__gte=now - timedelta(hours=1)).order_by("start_at")
         if staff_profile
         else ShiftAssignment.objects.none()
     )
     todays_shift_cost = sum(
-        (
-            max(
-                0,
-                (
-                    datetime.combine(today, item.end_time) - datetime.combine(today, item.start_time)
-                ).total_seconds() / 3600,
-            )
-            * float(item.staff.hourly_rate or 0)
-        )
+        _shift_overlap_hours(item.local_start_at, item.local_end_at, today_start, tomorrow_start) * float(item.staff.hourly_rate or 0)
         for item in todays_shift_assignments
-        if item.start_time and item.end_time and item.staff
+        if item.staff
     )
+    todays_shift_assignments = [_decorate_shift_assignment(item, now=now) for item in todays_shift_assignments[:8]]
+    filtered_shift_assignments = [_decorate_shift_assignment(item, now=now) for item in filtered_shift_assignments[:14]]
+    staff_shift_assignments = [_decorate_shift_assignment(item, now=now) for item in staff_shift_assignments[:14]]
+    shift_assignments = [_decorate_shift_assignment(item, now=now) for item in shift_assignments[:12]]
+    active_shift_count = sum(1 for item in todays_shift_assignments if item.shift_state == "active")
 
     return {
         "assistant_watch_items": _operations_watch_items(
@@ -809,10 +877,11 @@ def _operations_workspace_context(request, *, active_access, hospital):
         "nurse_tasks": doctor_tasks.filter(assigned_to=request.user) if role == HospitalAccess.Role.NURSE else doctor_tasks.none(),
         "care_plan_execution": care_plans[:8],
         "shift_handovers": handovers[:8],
-        "shift_assignments": shift_assignments[:12],
-        "todays_shift_assignments": todays_shift_assignments[:8],
-        "filtered_shift_assignments": filtered_shift_assignments[:14],
-        "staff_shift_assignments": staff_shift_assignments[:14],
+        "shift_assignments": shift_assignments,
+        "todays_shift_assignments": todays_shift_assignments,
+        "active_shift_count": active_shift_count,
+        "filtered_shift_assignments": filtered_shift_assignments,
+        "staff_shift_assignments": staff_shift_assignments,
         "shift_window": shift_window,
         "shift_window_label": shift_window_label,
         "shift_window_start": shift_start,
@@ -2698,13 +2767,16 @@ def create_shift_assignment(request):
         assignment.hospital = hospital
         assignment.save()
         staff = assignment.staff
-        staff.shift_start = assignment.start_time
-        staff.shift_end = assignment.end_time
+        staff.shift_start = assignment.local_start_at.timetz().replace(tzinfo=None) if assignment.local_start_at else None
+        staff.shift_end = assignment.local_end_at.timetz().replace(tzinfo=None) if assignment.local_end_at else None
         staff.save(update_fields=["shift_start", "shift_end"])
         send_user_notification(
             staff.user,
             "Shift assigned",
-            f"You are scheduled for {assignment.shift_date} from {assignment.start_time:%H:%M} to {assignment.end_time:%H:%M} at {hospital.name if hospital else 'BayAfya'}.",
+            (
+                f"You are scheduled from {assignment.local_start_at:%d %b %Y %H:%M} "
+                f"to {assignment.local_end_at:%d %b %Y %H:%M} at {hospital.name if hospital else 'BayAfya'}."
+            ),
         )
         broadcast_hospital_update(
             hospital,
@@ -2713,7 +2785,8 @@ def create_shift_assignment(request):
                 "assignment_id": assignment.id,
                 "staff_id": staff.id,
                 "user_id": staff.user_id,
-                "shift_date": assignment.shift_date.isoformat(),
+                "start_at": assignment.local_start_at.isoformat() if assignment.local_start_at else "",
+                "end_at": assignment.local_end_at.isoformat() if assignment.local_end_at else "",
             },
         )
         async_response = _async_dashboard_response(request, ok=True, message="Shift assigned successfully.")
@@ -2738,35 +2811,29 @@ def eligible_shift_staff(request):
     if not active_access or active_access.role not in OWNER_ROLES:
         raise PermissionDenied("Administrative access is required.")
 
-    shift_date = request.GET.get("shift_date")
-    start_time = request.GET.get("start_time")
-    end_time = request.GET.get("end_time")
+    start_at = request.GET.get("start_at")
+    end_at = request.GET.get("end_at")
     query = (request.GET.get("q") or "").strip()
 
     try:
-        shift_date = datetime.strptime(shift_date, "%Y-%m-%d").date() if shift_date else timezone.localdate()
+        start_at = timezone.make_aware(datetime.fromisoformat(start_at)) if start_at else timezone.localtime(timezone.now())
     except (TypeError, ValueError):
-        shift_date = timezone.localdate()
+        start_at = timezone.localtime(timezone.now())
     try:
-        start_time = datetime.strptime(start_time, "%H:%M").time() if start_time else None
+        end_at = timezone.make_aware(datetime.fromisoformat(end_at)) if end_at else None
     except (TypeError, ValueError):
-        start_time = None
-    try:
-        end_time = datetime.strptime(end_time, "%H:%M").time() if end_time else None
-    except (TypeError, ValueError):
-        end_time = None
+        end_at = None
 
     staff_queryset = eligible_shift_staff_queryset(
         hospital=hospital,
-        shift_date=shift_date,
-        start_time=start_time,
-        end_time=end_time,
+        start_at=start_at,
+        end_at=end_at,
         query=query,
     )
 
     results = []
     for staff in staff_queryset[:40]:
-        weekly_hours = scheduled_shift_hours_for_week(staff, shift_date)
+        weekly_hours = scheduled_shift_hours_for_week(staff, start_at)
         remaining = max(ShiftAssignmentForm.DEFAULT_WEEKLY_LIMIT_HOURS - weekly_hours, 0)
         results.append(
             {
@@ -2779,7 +2846,7 @@ def eligible_shift_staff(request):
                 ),
                 "full_label": format_shift_staff_label(
                     staff,
-                    shift_date=shift_date,
+                    start_at=start_at,
                     weekly_limit_hours=ShiftAssignmentForm.DEFAULT_WEEKLY_LIMIT_HOURS,
                 ),
             }
@@ -2976,6 +3043,11 @@ def create_invitation(request):
         invitation.code = code
         invitation.save()
         request.session["latest_invitation_code"] = invitation.code
+        broadcast_hospital_update(
+            hospital,
+            event_type="invitation_created",
+            payload={"invitation_id": invitation.id, "role": invitation.role},
+        )
         _notify_hospital_admins(
             hospital,
             "Hospital invitation created",
@@ -3047,6 +3119,11 @@ def manage_invitation(request, invitation_id):
             messages.error(request, "Redeemed authorization codes cannot be deleted.")
             return redirect("hospital:dashboard")
         _clear_pending_invitation_users(invitation)
+        broadcast_hospital_update(
+            invitation.hospital,
+            event_type="invitation_updated",
+            payload={"invitation_id": invitation_id, "action": "deleted"},
+        )
         invitation.delete()
         response = _async_dashboard_response(request, ok=True, message="Authorization code deleted.")
         if response is not None:
@@ -3070,6 +3147,11 @@ def manage_invitation(request, invitation_id):
         invitation.revoked_by = request.user
         invitation.save(update_fields=["is_active", "revoked_at", "revoked_by"])
         _clear_pending_invitation_users(invitation)
+        broadcast_hospital_update(
+            invitation.hospital,
+            event_type="invitation_updated",
+            payload={"invitation_id": invitation.id, "action": "revoked"},
+        )
         response = _async_dashboard_response(request, ok=True, message="Authorization code revoked.")
         if response is not None:
             return response
@@ -3120,6 +3202,11 @@ def manage_invitation(request, invitation_id):
     invitation.revoked_at = None
     invitation.revoked_by = None
     invitation.save(update_fields=["is_active", "revoked_at", "revoked_by"])
+    broadcast_hospital_update(
+        invitation.hospital,
+        event_type="invitation_updated",
+        payload={"invitation_id": invitation.id, "action": "reactivated"},
+    )
     response = _async_dashboard_response(request, ok=True, message="Authorization code reactivated.")
     if response is not None:
         return response
