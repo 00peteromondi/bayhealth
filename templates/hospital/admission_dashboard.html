@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-hospital"></i> Admissions and discharge</span>
+            <h1 class="display-6 fw-bold mb-2">Bed flow, admission control, transfer handling, and discharge workflow</h1>
+            <p class="text-white-50 mb-0">Manage the patient journey from ward placement through transfer and discharge without losing the facility record.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Hospital</div>
+                <div class="fs-4 fw-bold">{{ current_hospital.name|default:"All facilities" }}</div>
+                <div class="small text-white-50 mt-3">Beds available</div>
+                <div class="fs-5 fw-semibold">{{ beds_available }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if current_patient %}
+<div class="alert alert-info border-0 mb-4">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="status-pill"><i class="bi bi-person-check"></i>Current patient</span>
+        <strong>{{ current_patient }}</strong>
+        <span class="text-secondary">Admission forms will follow the active chart context when it is set.</span>
+    </div>
+</div>
+{% endif %}
+
+<div data-admission-dashboard-root data-live-page-root>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-hospital"></i><span>Live admission summary</span></span>
+        <span class="metric-overview-meta">4 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-door-open"></i></span><span class="metric-overview-label">Beds available</span><strong class="metric-overview-value">{{ beds_available }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-journal-medical"></i></span><span class="metric-overview-label">Active admissions</span><strong class="metric-overview-value">{{ active_admissions|length }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-building"></i></span><span class="metric-overview-label">Wards</span><strong class="metric-overview-value">{{ wards }}</strong></div>
+        <div class="metric-overview-item"><span class="metric-icon"><i class="bi bi-arrow-left-right"></i></span><span class="metric-overview-label">Admission reviews</span><strong class="metric-overview-value">{{ admission_review_walk_ins|length }}</strong></div>
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-door-open fs-4"></i></div><div class="text-uppercase small text-secondary">Beds available</div><div class="display-6 fw-bold">{{ beds_available }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-journal-medical fs-4"></i></div><div class="text-uppercase small text-secondary">Active admissions</div><div class="display-6 fw-bold">{{ active_admissions|length }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-building fs-4"></i></div><div class="text-uppercase small text-secondary">Wards</div><div class="display-6 fw-bold">{{ wards }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-arrow-left-right fs-4"></i></div><div class="text-uppercase small text-secondary">Admission reviews</div><div class="display-6 fw-bold">{{ admission_review_walk_ins|length }}</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3">
+        <button class="feature-card feature-card-action h-100 w-100 p-4 text-center border-0" type="button" data-admission-workspace-target="admit">
+            <div class="feature-icon mx-auto mb-3"><i class="bi bi-person-plus fs-4"></i></div>
+            <h3 class="h6 mb-2">Admission</h3>
+            <p class="text-secondary small mb-0">Assign a patient, doctor, bed, and reason of stay.</p>
+        </button>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <button class="feature-card feature-card-action h-100 w-100 p-4 text-center border-0" type="button" data-admission-workspace-target="transfer">
+            <div class="feature-icon mx-auto mb-3"><i class="bi bi-arrow-left-right fs-4"></i></div>
+            <h3 class="h6 mb-2">Transfer</h3>
+            <p class="text-secondary small mb-0">Move the patient cleanly between beds or wards.</p>
+        </button>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <button class="feature-card feature-card-action h-100 w-100 p-4 text-center border-0" type="button" data-admission-workspace-target="discharge">
+            <div class="feature-icon mx-auto mb-3"><i class="bi bi-clipboard2-check fs-4"></i></div>
+            <h3 class="h6 mb-2">Discharge</h3>
+            <p class="text-secondary small mb-0">Finalize summary, release bed, and close the episode.</p>
+        </button>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <button class="feature-card feature-card-action h-100 w-100 p-4 text-center border-0" type="button" data-admission-workspace-target="follow_up">
+            <div class="feature-icon mx-auto mb-3"><i class="bi bi-heart-pulse fs-4"></i></div>
+            <h3 class="h6 mb-2">Follow-up</h3>
+            <p class="text-secondary small mb-0">Keep care continuity aligned after discharge.</p>
+        </button>
+    </div>
+</div>
+
+<div class="card p-4 mb-4 admission-action-workspace d-none" id="admissionActionWorkspace" data-admission-workspace>
+    <div class="d-flex justify-content-between align-items-center mb-3 gap-3 flex-wrap">
+        <div>
+            <span class="section-kicker">Action workspace</span>
+            <h2 class="h4 mt-3 mb-0" data-admission-workspace-title>Admission workflow</h2>
+        </div>
+        <button class="bh-btn bh-btn-outline-light bh-btn-inline" type="button" data-admission-workspace-close>
+            <i class="bi bi-x-lg"></i><span>Close</span>
+        </button>
+    </div>
+    <div class="admission-action-panel d-none" data-admission-panel="admit">
+        <form method="post" action="{% url 'hospital:admission_dashboard' %}" class="auth-form" data-async-dashboard-form data-async-behavior="admission-action">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="admit">
+            <div class="row g-3">
+                {% for field in admission_form %}
+                    <div class="col-12 {% if field.name not in 'admission_reason notes' %}col-md-6{% endif %}">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 pt-3">
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-check2-circle"></i><span>Admit patient</span></button>
+            </div>
+        </form>
+    </div>
+    <div class="admission-action-panel d-none" data-admission-panel="transfer">
+        <form method="post" action="{% url 'hospital:admission_dashboard' %}" class="auth-form" data-async-dashboard-form data-async-behavior="admission-action">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="transfer">
+            <div class="row g-3">
+                {% for field in transfer_form %}
+                    <div class="col-12">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 pt-3">
+                <button class="bh-btn bh-btn-outline" type="submit"><i class="bi bi-arrow-right-left"></i><span>Transfer bed</span></button>
+            </div>
+        </form>
+    </div>
+    <div class="admission-action-panel d-none" data-admission-panel="discharge">
+        <form method="post" action="{% url 'hospital:admission_dashboard' %}" class="auth-form" data-async-dashboard-form data-async-behavior="admission-action">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="discharge">
+            <div class="row g-3">
+                {% for field in discharge_form %}
+                    <div class="col-12">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 pt-3">
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-check2-square"></i><span>Save discharge summary</span></button>
+            </div>
+        </form>
+    </div>
+    <div class="admission-action-panel d-none" data-admission-panel="follow_up">
+        <form method="post" action="{% url 'hospital:admission_dashboard' %}" class="auth-form" data-async-dashboard-form data-async-behavior="admission-action">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="follow_up">
+            <div class="row g-3">
+                {% for field in follow_up_form %}
+                    <div class="col-12 {% if field.name == 'reason' %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 pt-3">
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-calendar-check"></i><span>Schedule follow-up</span></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-5">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Doctor handoff</span><h2 class="h4 mt-3 mb-0">Walk-ins awaiting admission</h2></div>
+            </div>
+            <div class="d-grid gap-3">
+                {% for item in admission_review_walk_ins %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.patient }}</div>
+                    <div class="text-secondary small">{{ item.ticket_number }} · severity {{ item.severity_index }}/100</div>
+                    <div class="text-secondary small mt-2">{{ item.doctor_notes|default:item.triage_notes }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No walk-ins are currently waiting for admission placement.</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Action center</span><h2 class="h4 mt-3 mb-0">Admission workflow launchpad</h2></div>
+                <span class="mini-icon"><i class="bi bi-grid"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                <div class="soft-section p-3">
+                    <div class="fw-semibold mb-2">Open the next action from the cards above</div>
+                    <div class="text-secondary small">Admission, transfer, discharge, and follow-up stay in this focused workspace so you can move the patient journey forward without leaving the board.</div>
+                </div>
+                <div class="soft-section p-3">
+                    <div class="fw-semibold mb-2">Current billing checkpoints</div>
+                    <div class="d-grid gap-2 small text-secondary">
+                        <div class="d-flex justify-content-between"><span>Admission intake</span><strong>{{ walk_in_billing_rates.admission }}</strong></div>
+                        <div class="d-flex justify-content-between"><span>Bed transfer</span><strong>{{ walk_in_billing_rates.bed_transfer }}</strong></div>
+                        <div class="d-flex justify-content-between"><span>Discharge</span><strong>{{ walk_in_billing_rates.discharge }}</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Ward capacity</span><h2 class="h4 mt-3 mb-0">Available beds by ward</h2></div>
+                <span class="mini-icon"><i class="bi bi-door-open"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for ward in ward_status %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ ward.name }}</div>
+                            <div class="text-secondary small">{{ ward.get_ward_type_display }}{% if ward.location %} · {{ ward.location }}{% endif %}</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-door-open"></i>{{ ward.available_beds_count }}/{{ ward.capacity }} open</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">No wards are available in the current hospital context.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-7">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Active care</span><h2 class="h4 mt-3 mb-0">Current admissions</h2></div>
+                <span class="mini-icon"><i class="bi bi-journal-medical"></i></span>
+            </div>
+            <div class="row g-3" data-scroll-cards>
+                {% for admission in active_admissions %}
+                <div class="col-md-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <div class="fw-semibold">{{ admission.patient }}</div>
+                                <div class="text-secondary small">{{ admission.ward }} · Bed {{ admission.bed.bed_number }}</div>
+                            </div>
+                            <span class="status-pill">{{ admission.get_status_display }}</span>
+                        </div>
+                        <div class="text-secondary small mb-3">{{ admission.admission_reason }}</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="status-pill"><i class="bi bi-person-badge"></i>{{ admission.attending_doctor }}</span>
+                            <span class="status-pill"><i class="bi bi-building"></i>{{ admission.hospital.name }}</span>
+                            <a class="bh-btn bh-btn-inline bh-btn-outline" href="{% url 'hospital:patient_detail' admission.patient.id %}"><i class="bi bi-folder2-open"></i><span>View full record</span></a>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="empty-state p-4 text-center">
+                        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-hospital fs-2"></i></div>
+                        <div class="fw-semibold">No active admissions</div>
+                        <div class="text-secondary small">New admissions will appear here after bed assignment.</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Transfers</span><h2 class="h4 mt-3 mb-0">Recent bed transfers</h2></div>
+                <span class="mini-icon"><i class="bi bi-arrow-left-right"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                {% for transfer in transfers %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ transfer.admission.patient }}</div>
+                    <div class="text-secondary small">{{ transfer.from_bed }} → {{ transfer.to_bed }}</div>
+                    <div class="text-secondary small">{{ transfer.transferred_at|date:"Y-m-d H:i" }}</div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-arrow-left-right fs-2"></i></div>
+                    <div class="fw-semibold">No transfers recorded</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Follow-up readiness</span><h2 class="h4 mt-3 mb-0">Recent discharges and continuity plans</h2></div>
+                <span class="mini-icon"><i class="bi bi-heart-pulse"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in recent_discharges %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ item.admission.patient }}</div>
+                    <div class="text-secondary small mb-2">{{ item.created_at|date:"Y-m-d H:i" }} · {{ item.prepared_by }}</div>
+                    <div class="text-secondary small">{{ item.follow_up_plan|default:"No follow-up plan recorded yet."|truncatechars:140 }}</div>
+                </div>
+                {% empty %}
+                <div class="text-secondary small">Recent discharge summaries will appear here for follow-up coordination.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+{% endblock %}

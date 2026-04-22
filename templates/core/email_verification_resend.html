@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page-shell">
+<div class="card auth-card overflow-hidden">
+    <div class="row g-0">
+        <div class="col-lg-6 auth-visual auth-carousel-shell p-3 p-lg-4 d-flex flex-column">
+            <div class="auth-carousel-card h-100">
+                <span class="hero-chip mb-3"><i class="bi bi-send-check"></i> Verification help</span>
+                <h1 class="auth-carousel-title fw-bold mb-2">Send a fresh 7-digit verification code.</h1>
+                <p class="text-white-50 mb-3 auth-carousel-copy">Enter the email address on the account and BayAfya will send a new verification message using the secure mail path.</p>
+                <div class="auth-carousel-list">
+                    <div class="auth-carousel-list-item"><i class="bi bi-shield-check"></i><span>The link is time limited and tied to your account.</span></div>
+                    <div class="auth-carousel-list-item"><i class="bi bi-envelope-paper-heart"></i><span>Verification and recovery emails use the same authenticated delivery channel.</span></div>
+                    <div class="auth-carousel-list-item"><i class="bi bi-arrow-repeat"></i><span>Once verified, you can sign in and continue where you left off.</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 p-2 pt-0 p-lg-3 pt-lg-0 d-flex flex-column justify-content-center auth-form-panel">
+            <div class="auth-form-header">
+                <span class="section-kicker auth-top-badge">Authentication</span>
+                <div class="auth-brand-row">
+                    <span class="navbar-brand-badge auth-form-logo"><i class="bi bi-heart-pulse-fill"></i></span>
+                    <div>
+                        <div class="auth-form-title">Resend verification</div>
+                        <div class="small text-secondary">We’ll send a secure 7-digit email verification code.</div>
+                    </div>
+                </div>
+            </div>
+            {% if form.errors %}
+                <div hidden>
+                    {% for error in form.non_field_errors %}
+                        <div data-message-toast="{{ error }}" data-message-title="Verification error" data-message-tone="danger"></div>
+                    {% endfor %}
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <div data-message-toast="{{ error }}" data-message-title="Verification error" data-message-tone="danger"></div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <form method="post" class="auth-form auth-stack">
+                {% csrf_token %}
+                <div class="form-field-stack">
+                    {{ form.email.label_tag }}
+                    {{ form.email }}
+                    {% for error in form.email.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="auth-inline-actions">
+                    <button class="bh-btn bh-btn-primary" type="submit" data-auth-submit><i class="bi bi-send-check"></i><span>Send verification</span></button>
+                    <a class="bh-btn bh-btn-outline-light" href="{% url 'login' %}" data-auth-link><i class="bi bi-arrow-left"></i><span>Back to sign in</span></a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page-shell">
+<div class="card auth-card overflow-hidden">
+    <div class="row g-0">
+        <div class="col-lg-6 auth-visual auth-carousel-shell p-3 p-lg-4 d-flex flex-column">
+            <div class="auth-carousel-card h-100">
+                <span class="hero-chip mb-3"><i class="bi bi-envelope-check"></i> Verification sent</span>
+                <h1 class="auth-carousel-title fw-bold mb-2">Check your inbox for the 7-digit verification code.</h1>
+                <p class="text-white-50 mb-3 auth-carousel-copy">If the email you provided belongs to a BayAfya account, a secure verification code is on its way now.</p>
+                <div class="auth-carousel-list">
+                    <div class="auth-carousel-list-item"><i class="bi bi-shield-check"></i><span>The code expires after a short window for security.</span></div>
+                    <div class="auth-carousel-list-item"><i class="bi bi-arrow-repeat"></i><span>Use the resend page if the email does not arrive promptly.</span></div>
+                    <div class="auth-carousel-list-item"><i class="bi bi-box-arrow-in-right"></i><span>After verifying, return here to sign in fresh.</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 p-2 pt-0 p-lg-3 pt-lg-0 d-flex flex-column justify-content-center auth-form-panel">
+            <div class="auth-form-header">
+                <span class="section-kicker auth-top-badge">Authentication</span>
+                <div class="auth-brand-row">
+                    <span class="navbar-brand-badge auth-form-logo"><i class="bi bi-heart-pulse-fill"></i></span>
+                    <div>
+                        <div class="auth-form-title">Verification email queued</div>
+                        <div class="small text-secondary">Address: {{ verification_email|default:"your email" }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="soft-section p-4 mb-3">
+                <div class="fw-semibold mb-1">What happens next</div>
+                <div class="text-secondary small">
+                    {% if resend_mode %}
+                        We sent a fresh 7-digit verification code if the address matched a BayAfya account.
+                    {% else %}
+                        We created your account and sent a 7-digit verification code to complete setup.
+                    {% endif %}
+                </div>
+            </div>
+            {% if verification_form %}
+            <div class="email-verification-shell mb-3" data-email-verification-shell>
+                <form method="post" action="{% url 'email_verification_confirm' %}" class="auth-form auth-stack mb-3" data-email-verification-form>
+                    {% csrf_token %}
+                    {{ verification_form.email.as_hidden }}
+                    <input type="hidden" name="code" value="" data-email-verification-code>
+                    <div class="form-field-stack">
+                        <label class="form-label">Verification code</label>
+                        <div class="email-verification-code-grid" data-email-verification-grid>
+                            {% for _ in "1234567" %}
+                            <input
+                                type="text"
+                                class="form-control email-verification-digit"
+                                inputmode="numeric"
+                                pattern="[0-9]*"
+                                maxlength="1"
+                                autocomplete="one-time-code"
+                                data-verification-digit
+                            >
+                            {% endfor %}
+                        </div>
+                        <div class="bh-field-help" data-email-verification-feedback>Enter the 7-digit code from your email. Verification happens automatically after the last digit.</div>
+                    </div>
+                    <button class="bh-btn bh-btn-primary d-none" type="submit" data-auth-submit><i class="bi bi-shield-check"></i><span>Verify email</span></button>
+                </form>
+                <div class="auth-inline-actions">
+                    <a class="bh-btn bh-btn-primary" href="{% url 'login' %}" data-auth-link><i class="bi bi-box-arrow-in-right"></i><span>Back to sign in</span></a>
+                    <a class="bh-btn bh-btn-outline-light" href="{% url 'resend_email_verification' %}" data-auth-link><i class="bi bi-send-check"></i><span>Resend email</span></a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

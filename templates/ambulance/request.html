@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4 align-items-stretch">
+    <div class="col-lg-4">
+        <div class="banner-card p-4 h-100">
+            <span class="hero-chip mb-3"><i class="bi bi-exclamation-triangle"></i> Emergency response</span>
+            <h1 class="h2 fw-bold">Request ambulance support quickly and clearly.</h1>
+            <p class="text-white-50 mb-0">Provide location and notes so dispatch can begin with clean operational context.</p>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-4 p-lg-5">
+            <span class="section-kicker">Dispatch intake</span>
+            <h2 class="h2 mt-3 mb-4">Emergency ambulance request</h2>
+            <form method="post" class="row g-3 auth-form">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="col-md-6 {% if field.name == 'address' or field.name == 'medical_notes' %}col-12{% endif %}">
+                        <div class="form-field-stack">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="col-12">
+                    <div id="ambulanceMap" class="map-feed rounded-4 mb-3"></div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="bh-btn bh-btn-outline" type="button" id="useCurrentLocation"><i class="bi bi-crosshair"></i><span>Use current location</span></button>
+                        <button class="bh-btn bh-btn-danger" type="submit"><i class="bi bi-send-exclamation"></i><span>Request ambulance</span></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCfR+9D9ZK7R9o3y4o3u4f9w=" crossorigin="" />
+{% endblock %}
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j7kP4kFQ7w2b1p1i7u4KQ7JQqQ8YF5J8n3zF0vQ=" crossorigin=""></script>
+<script>
+    (function() {
+        const mapEl = document.getElementById("ambulanceMap");
+        const latField = document.getElementById("id_latitude");
+        const lngField = document.getElementById("id_longitude");
+        const currentLocationButton = document.getElementById("useCurrentLocation");
+        if (!mapEl || !latField || !lngField || !window.L) return;
+        const defaultPoint = [latField.value || -1.286389, lngField.value || 36.817223];
+        const map = L.map("ambulanceMap").setView(defaultPoint, 13);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+        const marker = L.marker(defaultPoint, { draggable: true }).addTo(map);
+        function syncFields(latlng) {
+            latField.value = Number(latlng.lat).toFixed(6);
+            lngField.value = Number(latlng.lng).toFixed(6);
+        }
+        marker.on("dragend", () => syncFields(marker.getLatLng()));
+        map.on("click", (event) => {
+            marker.setLatLng(event.latlng);
+            syncFields(event.latlng);
+        });
+        if (latField.value && lngField.value) {
+            syncFields(marker.getLatLng());
+        }
+        currentLocationButton?.addEventListener("click", () => {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition((position) => {
+                const point = [position.coords.latitude, position.coords.longitude];
+                map.setView(point, 15);
+                marker.setLatLng(point);
+                syncFields({ lat: point[0], lng: point[1] });
+            });
+        });
+    })();
+</script>
+{% endblock %}

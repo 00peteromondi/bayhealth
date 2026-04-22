@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-people"></i> Patient registry</span>
+            <h1 class="display-6 fw-bold mb-2">Complete patient oversight</h1>
+            <p class="text-white-50 mb-0">Track care patterns, active conditions, age groups, and surgical demand across the selected hospital workspace.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Active facility</div>
+                <div class="fs-4 fw-bold">{{ current_hospital.name|default:"All facilities" }}</div>
+                <div class="small text-white-50 mt-3">Patient records</div>
+                <div class="fs-5 fw-semibold">{{ summary.patients }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-people"></i><span>Live registry overview</span></span>
+        <span class="metric-overview-meta">4 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-people"></i></span>
+            <span class="metric-overview-label">Patients</span>
+            <strong class="metric-overview-value">{{ summary.patients }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+            <span class="metric-overview-label">Active conditions</span>
+            <strong class="metric-overview-value">{{ summary.active_conditions }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-scissors"></i></span>
+            <span class="metric-overview-label">Scheduled surgery</span>
+            <strong class="metric-overview-value">{{ summary.upcoming_surgeries }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-hospital"></i></span>
+            <span class="metric-overview-label">Active admissions</span>
+            <strong class="metric-overview-value">{{ summary.admissions }}</strong>
+        </div>
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-people fs-4"></i></div><div class="text-uppercase small text-secondary">Patients</div><div class="display-6 fw-bold">{{ summary.patients }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-clipboard2-pulse fs-4"></i></div><div class="text-uppercase small text-secondary">Active conditions</div><div class="display-6 fw-bold">{{ summary.active_conditions }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-scissors fs-4"></i></div><div class="text-uppercase small text-secondary">Scheduled surgery</div><div class="display-6 fw-bold">{{ summary.upcoming_surgeries }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-hospital fs-4"></i></div><div class="text-uppercase small text-secondary">Active admissions</div><div class="display-6 fw-bold">{{ summary.admissions }}</div></div></div>
+</div>
+
+<div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="section-kicker">Search and filter</span>
+            <h2 class="h4 mt-3 mb-0">Refine the patient list</h2>
+        </div>
+        <span class="mini-icon"><i class="bi bi-funnel"></i></span>
+    </div>
+    <form method="get" class="bh-query-panel">
+        <div class="bh-query-grid">
+            <div class="bh-query-field bh-query-field-wide">
+                <label for="registryQuery">Search</label>
+                <div class="bh-search-shell">
+                    <i class="bi bi-search"></i>
+                    <input id="registryQuery" type="text" name="q" value="{{ search }}" class="form-control" placeholder="Name, username, patient number, or contact person">
+                </div>
+            </div>
+            <div class="bh-query-field">
+                <label for="registryAge">Age group</label>
+                <select id="registryAge" name="age_group" class="form-select">
+                    <option value="">All groups</option>
+                    {% for option in age_groups %}
+                        <option value="{{ option }}" {% if age_group == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="bh-query-field">
+                <label for="registryCondition">Condition</label>
+                <input id="registryCondition" type="text" name="condition" value="{{ condition_query }}" class="form-control" placeholder="Diabetes, asthma, fracture">
+            </div>
+            <div class="bh-query-actions">
+                <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-search"></i><span>Search</span></button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="row g-4">
+    {% for item in patients %}
+    <div class="col-md-6 col-xl-4">
+        <div class="feature-card h-100 p-4">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div class="d-flex align-items-center gap-3 min-w-0">
+                    {% if item.patient.user.profile_picture %}
+                        <span class="bh-avatar bh-avatar-md flex-shrink-0"><img src="{{ item.patient.user.profile_picture.url }}" alt="{{ item.patient.patient }}" class="avatar-image"></span>
+                    {% else %}
+                        <span class="bh-avatar bh-avatar-md flex-shrink-0"><i class="bi bi-person-circle"></i></span>
+                    {% endif %}
+                    <div class="min-w-0">
+                        <div class="fw-semibold text-truncate">{{ item.patient }}</div>
+                        <div class="text-secondary small text-truncate">{{ item.patient.patient_number }}</div>
+                    </div>
+                </div>
+                <span class="status-pill patient-age-badge"><i class="bi bi-activity"></i>{{ item.age_group }}</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="status-pill"><i class="bi bi-hospital"></i>{{ item.hospital_name }}</span>
+                <span class="status-pill"><i class="bi bi-calendar2-check"></i>{{ item.appointments }} visits</span>
+                <span class="status-pill"><i class="bi bi-scissors"></i>{{ item.surgeries }} surgery</span>
+            </div>
+            <div class="d-grid gap-2 mb-3">
+                {% for condition in item.conditions %}
+                    <div class="soft-section px-3 py-2">
+                        <i class="bi bi-clipboard2-pulse me-2"></i>{{ condition }}
+                    </div>
+                {% empty %}
+                    <div class="empty-state p-3 text-center">
+                        <div class="fw-semibold">No active condition recorded</div>
+                        <div class="text-secondary small">A diagnosis or problem list item will appear here when entered.</div>
+                    </div>
+                {% endfor %}
+            </div>
+            <a class="bh-btn bh-btn-surface w-100 justify-content-center" href="{% url 'hospital:patient_detail' item.patient.id %}">
+                <i class="bi bi-person-lines-fill"></i><span>Open full record</span>
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="empty-state p-5 text-center">
+            <div class="empty-illustration mx-auto mb-3"><i class="bi bi-people fs-2"></i></div>
+            <h2 class="h4">No patients matched the current filter</h2>
+            <p class="text-secondary mb-0">Adjust the search terms or switch the active hospital workspace to review another facility.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if is_paginated %}
+<div class="card p-4 mt-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+        <div>
+            <div class="fw-semibold">Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} patients</div>
+            <div class="text-secondary small">Use the pager to move through the full registry without overloading the page.</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if page_obj.has_previous %}
+            <a class="bh-btn bh-btn-outline" href="?q={{ search|urlencode }}&age_group={{ age_group|urlencode }}&condition={{ condition_query|urlencode }}&page={{ page_obj.previous_page_number }}">
+                <i class="bi bi-arrow-left"></i><span>Previous</span>
+            </a>
+            {% endif %}
+            <span class="status-pill"><i class="bi bi-collection"></i>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a class="bh-btn bh-btn-primary" href="?q={{ search|urlencode }}&age_group={{ age_group|urlencode }}&condition={{ condition_query|urlencode }}&page={{ page_obj.next_page_number }}">
+                <span>Next</span><i class="bi bi-arrow-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

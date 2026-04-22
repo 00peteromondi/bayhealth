@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-camera-video-fill"></i> Virtual care operations</span>
+            <h1 class="display-6 fw-bold mb-2">Telemedicine dashboard</h1>
+            <p class="text-white-50 mb-0">Manage live consultation rooms, review virtual session readiness, and access digital clinical exchange in one place.</p>
+        </div>
+        <div class="col-lg-4"><div class="hero-floating-card p-4"><div class="small text-white-50">Consultation rooms</div><div class="fs-2 fw-bold">{{ consultations|length }}</div></div></div>
+    </div>
+</section>
+<div class="card p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><span class="section-kicker">Session queue</span><h2 class="h3 mt-3 mb-0">Virtual consultations</h2></div>
+        <span class="mini-icon"><i class="bi bi-display"></i></span>
+    </div>
+    <div class="row g-3">
+        {% for consultation in consultations %}
+        <div class="col-md-6 col-xl-4">
+            <div class="soft-section p-3 h-100">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <div class="fw-semibold">{{ consultation.appointment }}</div>
+                        <div class="text-secondary small">Room {{ consultation.room_id }}</div>
+                    </div>
+                    <span class="status-pill"><i class="bi bi-broadcast"></i>{{ consultation.get_status_display }}</span>
+                </div>
+                <a class="bh-btn bh-btn-primary bh-btn-inline" href="{% url 'telemedicine:join_room' consultation.room_id %}">Open room</a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="empty-state p-4 text-center">
+                <div class="empty-illustration mx-auto mb-3"><i class="bi bi-camera-video fs-2"></i></div>
+                <div class="fw-semibold">No consultations available</div>
+                <div class="text-secondary small">Virtual sessions will appear here when a room is created.</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

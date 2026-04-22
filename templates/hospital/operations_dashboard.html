@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+
+{% block body_class %} hospital-command-page{% endblock %}
+{% block main_class %} hospital-command-main{% endblock %}
+
+{% block content %}
+<div data-live-dashboard-endpoint="{% url 'hospital:dashboard_live_metrics' %}"></div>
+<div data-live-page-root>
+    <section class="hospital-command-shell">
+        <div class="hospital-command-header">
+            <div class="hospital-command-titleblock">
+                <span class="hero-chip">
+                    <i class="bi bi-hospital"></i>
+                    {{ current_hospital.name|default:"Hospital workspace" }}
+                </span>
+                <h1>{{ role_workspace.title }}</h1>
+                <p>{{ role_workspace.summary }}</p>
+            </div>
+            <div class="hospital-command-actions">
+                <div class="hospital-command-status">
+                    <span class="status-pill">
+                        <i class="bi bi-stars"></i>
+                        <span data-bayafya-watch-count>{{ assistant_watch_items|length }} signals</span>
+                    </span>
+                    <span class="status-pill">
+                        <i class="bi bi-person-badge"></i>
+                        {{ active_access.get_role_display|default:user.get_role_display }}
+                    </span>
+                </div>
+                <div class="hospital-command-quick">
+                    {% if active_access.role == "receptionist" or active_access.role == "nurse" or active_access.role == "emergency_operator" %}
+                    <button class="bh-btn bh-btn-primary bh-btn-inline" type="button" data-bs-toggle="modal" data-bs-target="#commandIntakeModal">
+                        <i class="bi bi-person-plus"></i><span>New intake</span>
+                    </button>
+                    {% endif %}
+                    <button class="bh-btn bh-btn-outline bh-btn-inline" type="button" data-bayafya-watch-refresh>
+                        <i class="bi bi-arrow-clockwise"></i><span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="hospital-command-metrics">
+            <article class="hospital-metric-chip">
+                <span class="metric-label">Beds</span>
+                <strong data-live-metric="beds_available">{{ beds_available }}</strong>
+                <span class="metric-hint">available</span>
+            </article>
+            <article class="hospital-metric-chip">
+                <span class="metric-label">Admissions</span>
+                <strong data-live-metric="active_admissions">{{ active_admissions }}</strong>
+                <span class="metric-hint">active</span>
+            </article>
+            <article class="hospital-metric-chip">
+                <span class="metric-label">Queue</span>
+                <strong data-live-metric="queued_patients">{{ queued_patients }}</strong>
+                <span class="metric-hint">waiting</span>
+            </article>
+            <article class="hospital-metric-chip">
+                <span class="metric-label">Labs</span>
+                <strong data-live-metric="pending_labs">{{ pending_labs }}</strong>
+                <span class="metric-hint">pending</span>
+            </article>
+            <article class="hospital-metric-chip">
+                <span class="metric-label">Staff</span>
+                <strong data-live-metric="staff_count">{{ staff_count }}</strong>
+                <span class="metric-hint">profiles</span>
+            </article>
+            <article class="hospital-metric-chip">
+                <span class="metric-label">Critical</span>
+                <strong>{{ walk_in_summary.critical }}</strong>
+                <span class="metric-hint">walk-ins</span>
+            </article>
+        </div>
+
+        <div class="hospital-command-mobile-nav" role="tablist" aria-label="Dashboard panes">
+            <button class="hospital-pane-toggle is-active" type="button" data-command-pane-button="signals">Signals</button>
+            <button class="hospital-pane-toggle" type="button" data-command-pane-button="workbench">Workbench</button>
+            <button class="hospital-pane-toggle" type="button" data-command-pane-button="control">Control</button>
+        </div>
+
+        <div class="hospital-command-grid">
+            <aside class="hospital-command-pane is-active" data-command-pane="signals">
+                <article class="hospital-command-card bayafya-watch" {% if assistant_watch_items %}data-watch-dismiss-url="{% url 'hospital:dismiss_watch_signal' %}"{% endif %}>
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-stars"></i>BayAfya watch</span>
+                            <h2>Signals</h2>
+                        </div>
+                    </div>
+                    <div class="hospital-watch-stack" data-bayafya-watch-list>
+                        {% for item in assistant_watch_items|slice:":3" %}
+                        <div class="bayafya-watch-item bayafya-watch-tone-{{ item.tone|default:'primary' }}" data-bayafya-watch-item data-watch-id="{{ item.id }}">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="min-w-0">
+                                    <div class="fw-semibold">{{ item.title }}</div>
+                                    <div class="text-secondary small">{{ item.detail|truncatechars:118 }}</div>
+                                </div>
+                                <button class="bayafya-watch-dismiss" type="button" data-watch-dismiss="{{ item.id }}" aria-label="Dismiss signal">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="hospital-empty-state">
+                            <strong>Nothing critical right now.</strong>
+                            <span>Fresh queue, lab, and incident items will surface here automatically.</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </article>
+
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-compass"></i>Workflow focus</span>
+                            <h2>{{ workflow_focus.title }}</h2>
+                        </div>
+                    </div>
+                    <p class="hospital-card-copy">{{ workflow_focus.summary }}</p>
+                    <div class="hospital-context-pills">
+                        {% if workflow_focus.current_patient %}
+                        <span class="status-pill"><i class="bi bi-person"></i>{{ workflow_focus.current_patient }}</span>
+                        {% endif %}
+                        {% if workflow_focus.current_walk_in %}
+                        <span class="status-pill"><i class="bi bi-activity"></i>{{ workflow_focus.current_walk_in.ticket_number }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="hospital-bullet-stack">
+                        {% for bullet in workflow_focus.bullets|slice:":2" %}
+                        <div class="hospital-bullet">{{ bullet }}</div>
+                        {% endfor %}
+                    </div>
+                </article>
+
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-broadcast"></i>Live pulse</span>
+                            <h2>Operational alerts</h2>
+                        </div>
+                    </div>
+                    <div class="hospital-list-stack">
+                        {% for alert in role_workspace.alerts|slice:":4" %}
+                        <div class="hospital-list-item">
+                            <div>
+                                <strong>{{ alert.title }}</strong>
+                                <span>{{ alert.detail }}</span>
+                            </div>
+                            <span class="status-pill {% if alert.tone == 'danger' %}danger{% elif alert.tone == 'warning' %}warning{% endif %}">{{ alert.tone|title }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="hospital-empty-state">
+                            <strong>No active escalations.</strong>
+                            <span>Critical vitals, urgent labs, and severe queue items will appear here.</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </article>
+            </aside>
+
+            <section class="hospital-command-pane" data-command-pane="workbench">
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-grid-1x2"></i>Queue snapshot</span>
+                            <h2>Care movement</h2>
+                        </div>
+                    </div>
+                    <div class="hospital-mini-grid">
+                        <div class="hospital-mini-stat">
+                            <span>Triage</span>
+                            <strong>{{ walk_in_summary.waiting_triage }}</strong>
+                        </div>
+                        <div class="hospital-mini-stat">
+                            <span>Doctor</span>
+                            <strong>{{ walk_in_summary.waiting_doctor }}</strong>
+                        </div>
+                        <div class="hospital-mini-stat">
+                            <span>Lab</span>
+                            <strong>{{ walk_in_summary.awaiting_lab }}</strong>
+                        </div>
+                        <div class="hospital-mini-stat">
+                            <span>Pharmacy</span>
+                            <strong>{{ walk_in_summary.awaiting_pharmacy }}</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            {% if active_access.role == "nurse" %}
+                            <span class="section-kicker"><i class="bi bi-heart-pulse"></i>Nursing lane</span>
+                            <h2>Assigned work</h2>
+                            {% elif active_access.role == "receptionist" %}
+                            <span class="section-kicker"><i class="bi bi-person-vcard"></i>Front desk lane</span>
+                            <h2>Arrivals and follow-up</h2>
+                            {% elif active_access.role == "lab_technician" %}
+                            <span class="section-kicker"><i class="bi bi-beaker"></i>Laboratory lane</span>
+                            <h2>Active requests</h2>
+                            {% elif active_access.role == "pharmacist" %}
+                            <span class="section-kicker"><i class="bi bi-capsule"></i>Pharmacy lane</span>
+                            <h2>Dispensing queue</h2>
+                            {% else %}
+                            <span class="section-kicker"><i class="bi bi-exclamation-triangle"></i>Emergency lane</span>
+                            <h2>Open incidents</h2>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="hospital-list-stack">
+                        {% if active_access.role == "nurse" %}
+                            {% for item in nurse_tasks|slice:":4" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.title }}</strong>
+                                    <span>{{ item.patient }}{% if item.due_at %} · due {{ item.due_at|date:"H:i" }}{% endif %}</span>
+                                </div>
+                                <span class="status-pill">{{ item.get_status_display }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No nurse tasks assigned.</strong><span>Admission review and handovers remain visible below.</span></div>
+                            {% endfor %}
+                            {% for item in admission_review_queue|slice:":2" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.patient }}</strong>
+                                    <span>Admission review · {{ item.ticket_number }}</span>
+                                </div>
+                                <form method="post" action="{% url 'hospital:set_walk_in_context' item.id %}" data-async-context-form>
+                                    {% csrf_token %}
+                                    <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Open</button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        {% elif active_access.role == "receptionist" %}
+                            {% for item in walk_in_waiting_triage|slice:":4" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.patient }}</strong>
+                                    <span>{{ item.ticket_number }} · arrived {{ item.arrived_at|date:"H:i" }}</span>
+                                </div>
+                                <span class="status-pill {% if item.is_critical %}danger{% endif %}">{{ item.get_status_display }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No arrivals waiting.</strong><span>New walk-ins appear here after reception capture.</span></div>
+                            {% endfor %}
+                            {% for item in reception_followups|slice:":2" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.patient }}</strong>
+                                    <span>{{ item.appointment_date }} · {{ item.get_status_display }}</span>
+                                </div>
+                                <span class="status-pill">{{ item.get_status_display }}</span>
+                            </div>
+                            {% endfor %}
+                        {% elif active_access.role == "lab_technician" %}
+                            {% for item in lab_active_queue|slice:":4" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.test_name }}</strong>
+                                    <span>{{ item.patient }} · {{ item.get_status_display }}</span>
+                                </div>
+                                {% if item.walk_in_encounter_id %}
+                                <form method="post" action="{% url 'hospital:set_walk_in_context' item.walk_in_encounter_id %}" data-async-context-form>
+                                    {% csrf_token %}
+                                    <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Open</button>
+                                </form>
+                                {% else %}
+                                <span class="status-pill">{{ item.get_priority_display|default:item.priority|title }}</span>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No active lab requests.</strong><span>Urgent tests and active worklists will surface here.</span></div>
+                            {% endfor %}
+                        {% elif active_access.role == "pharmacist" %}
+                            {% for item in pharmacy_queue|slice:":4" %}
+                            <div class="hospital-list-item hospital-list-item-actions">
+                                <div>
+                                    <strong>{{ item.patient }}</strong>
+                                    <span>{{ item.instructions|truncatechars:72 }}</span>
+                                </div>
+                                <div class="hospital-inline-actions">
+                                    <form method="post" action="{% url 'hospital:update_pharmacy_task' item.id %}" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="status" value="in_progress">
+                                        <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Start</button>
+                                    </form>
+                                    <form method="post" action="{% url 'hospital:update_pharmacy_task' item.id %}" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="status" value="completed">
+                                        <button class="bh-btn bh-btn-inline bh-btn-primary" type="submit">Dispense</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No dispensing tasks waiting.</strong><span>New pharmacy handoffs will appear here.</span></div>
+                            {% endfor %}
+                        {% else %}
+                            {% for item in open_emergency_incidents|slice:":4" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.title }}</strong>
+                                    <span>{{ item.location|default:"Location pending" }}</span>
+                                </div>
+                                <form method="post" action="{% url 'hospital:update_emergency_incident_status' item.id 'resolved' %}" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <button class="bh-btn bh-btn-inline bh-btn-outline" type="submit">Resolve</button>
+                                </form>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No open incidents.</strong><span>Dispatch and critical issues will be listed here first.</span></div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </article>
+
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-lightning-charge"></i>Support lane</span>
+                            <h2>Secondary pressure points</h2>
+                        </div>
+                    </div>
+                    <div class="hospital-list-stack">
+                        {% if active_access.role == "nurse" %}
+                            {% for item in shift_handovers|slice:":3" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.shift_date|date:"M d" }}</strong>
+                                    <span>{{ item.summary|truncatechars:92 }}</span>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No handovers recorded.</strong><span>Shift notes will appear here after submission.</span></div>
+                            {% endfor %}
+                        {% elif active_access.role == "receptionist" %}
+                            {% for item in open_supply_requests_list|slice:":3" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.item_name }}</strong>
+                                    <span>{{ item.department }} · {{ item.quantity }} requested</span>
+                                </div>
+                                <span class="status-pill">{{ item.get_status_display }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No open supply requests.</strong><span>Front-desk supply escalations will appear here.</span></div>
+                            {% endfor %}
+                        {% elif active_access.role == "lab_technician" %}
+                            {% for item in lab_qc_logs|slice:":3" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.analyzer_name }}</strong>
+                                    <span>{{ item.recorded_at|date:"M d H:i" }}</span>
+                                </div>
+                                <span class="status-pill {% if item.qc_status != 'pass' %}warning{% endif %}">{{ item.get_qc_status_display }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No QC entries yet.</strong><span>Recent analyzer quality checks will show here.</span></div>
+                            {% endfor %}
+                        {% elif active_access.role == "pharmacist" %}
+                            {% for item in pharmacy_low_stock|slice:":4" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.name }}</strong>
+                                    <span>{{ item.description|truncatechars:72 }}</span>
+                                </div>
+                                <span class="status-pill warning">{{ item.stock_quantity }} left</span>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No low-stock items.</strong><span>Inventory pressure will surface here before it slows dispensing.</span></div>
+                            {% endfor %}
+                        {% else %}
+                            {% for item in active_dispatches|slice:":3" %}
+                            <div class="hospital-list-item">
+                                <div>
+                                    <strong>{{ item.address }}</strong>
+                                    <span>{{ item.created_at|date:"M d H:i" }}</span>
+                                </div>
+                                <span class="status-pill">{{ item.get_status_display }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="hospital-empty-state"><strong>No active dispatches.</strong><span>Ambulance dispatch work will appear here.</span></div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </article>
+            </section>
+
+            <aside class="hospital-command-pane" data-command-pane="control">
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-sliders"></i>Action desk</span>
+                            <h2>In-page controls</h2>
+                        </div>
+                    </div>
+                    {% if active_access.role == "nurse" %}
+                    <form method="post" action="{% url 'hospital:create_shift_handover' %}" class="hospital-command-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                        {% csrf_token %}
+                        <div class="hospital-form-grid">
+                            {% for field in shift_handover_form %}
+                            <div class="hospital-form-field {% if field.name == 'shift_date' %}hospital-form-field-half{% endif %}">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-journal-plus"></i><span>Save handover</span></button>
+                    </form>
+                    {% elif active_access.role == "receptionist" %}
+                    <form method="post" action="{% url 'hospital:create_supply_request' %}" class="hospital-command-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                        {% csrf_token %}
+                        <div class="hospital-form-grid">
+                            {% for field in supply_request_form %}
+                            <div class="hospital-form-field {% if field.name != 'notes' %}hospital-form-field-half{% endif %}">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-box-seam"></i><span>Request supplies</span></button>
+                    </form>
+                    {% elif active_access.role == "lab_technician" %}
+                    <form method="post" action="{% url 'hospital:create_lab_qc_log' %}" class="hospital-command-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                        {% csrf_token %}
+                        <div class="hospital-form-grid">
+                            {% for field in lab_qc_form %}
+                            <div class="hospital-form-field {% if field.name != 'notes' %}hospital-form-field-half{% endif %}">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-clipboard2-pulse"></i><span>Record QC</span></button>
+                    </form>
+                    {% elif active_access.role == "emergency_operator" %}
+                    <form method="post" action="{% url 'hospital:create_emergency_incident' %}" class="hospital-command-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                        {% csrf_token %}
+                        <div class="hospital-form-grid">
+                            {% for field in emergency_incident_form %}
+                            <div class="hospital-form-field {% if field.name != 'notes' %}hospital-form-field-half{% endif %}">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-exclamation-triangle"></i><span>Log incident</span></button>
+                    </form>
+                    {% else %}
+                    <div class="hospital-empty-state hospital-empty-fill">
+                        <strong>Inline action controls stay light for pharmacy.</strong>
+                        <span>Use the workbench lane to start or complete dispensing tasks without leaving this page.</span>
+                    </div>
+                    {% endif %}
+                </article>
+
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-building"></i>Hospital snapshot</span>
+                            <h2>Readiness</h2>
+                        </div>
+                    </div>
+                    <div class="hospital-mini-grid">
+                        <div class="hospital-mini-stat">
+                            <span>Wards</span>
+                            <strong>{{ wards }}</strong>
+                        </div>
+                        <div class="hospital-mini-stat">
+                            <span>Occupied</span>
+                            <strong>{{ admin_overview.occupied_beds }}</strong>
+                        </div>
+                        <div class="hospital-mini-stat">
+                            <span>Open supplies</span>
+                            <strong>{{ admin_overview.open_supply_requests }}</strong>
+                        </div>
+                        <div class="hospital-mini-stat">
+                            <span>Critical incidents</span>
+                            <strong>{{ admin_overview.critical_incidents }}</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="hospital-command-card">
+                    <div class="hospital-card-heading">
+                        <div>
+                            <span class="section-kicker"><i class="bi bi-clock-history"></i>Recent movement</span>
+                            <h2>Latest patient-linked activity</h2>
+                        </div>
+                    </div>
+                    <div class="hospital-list-stack">
+                        {% for item in recent_vitals|slice:":3" %}
+                        <div class="hospital-list-item">
+                            <div>
+                                <strong>{{ item.patient }}</strong>
+                                <span>Vitals recorded {{ item.recorded_at|date:"M d H:i" }}</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        {% endfor %}
+                        {% for item in recent_lab_requests|slice:":3" %}
+                        <div class="hospital-list-item">
+                            <div>
+                                <strong>{{ item.test_name }}</strong>
+                                <span>{{ item.patient }} · {{ item.get_status_display }}</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="hospital-empty-state">
+                            <strong>No recent bedside or lab activity.</strong>
+                            <span>Fresh vitals and laboratory requests will appear here.</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </article>
+            </aside>
+        </div>
+    </section>
+
+    {% if active_access.role == "receptionist" or active_access.role == "nurse" or active_access.role == "emergency_operator" %}
+    <div class="modal fade" id="commandIntakeModal" tabindex="-1" aria-labelledby="commandIntakeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0">
+                    <div>
+                        <div class="section-kicker"><i class="bi bi-person-plus"></i>Reception intake</div>
+                        <h2 class="h4 mb-0 mt-2" id="commandIntakeModalLabel">Register walk-in without leaving the dashboard</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body pt-0">
+                    <form method="post" action="{% url 'hospital:intake_walk_in' %}" data-async-dashboard-form data-async-behavior="live-root-refresh" data-close-on-success="1">
+                        {% csrf_token %}
+                        <div class="hospital-form-grid hospital-form-grid-intake">
+                            {% for field in walk_in_intake_form %}
+                            <div class="hospital-form-field {% if field.name != 'symptoms' and field.name != 'current_state' %}hospital-form-field-third{% endif %}">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="modal-footer border-0 px-0 pb-0">
+                            <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-check2-circle"></i><span>Capture walk-in</span></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    (() => {
+        const activate = (name) => {
+            const buttons = Array.from(document.querySelectorAll("[data-command-pane-button]"));
+            const panes = Array.from(document.querySelectorAll("[data-command-pane]"));
+            if (!buttons.length || !panes.length) return;
+            buttons.forEach((button) => {
+                button.classList.toggle("is-active", button.dataset.commandPaneButton === name);
+            });
+            panes.forEach((pane) => {
+                pane.classList.toggle("is-active", pane.dataset.commandPane === name);
+            });
+        };
+
+        document.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-command-pane-button]");
+            if (!button) return;
+            activate(button.dataset.commandPaneButton);
+        });
+
+        activate("signals");
+    })();
+</script>
+{% endblock %}

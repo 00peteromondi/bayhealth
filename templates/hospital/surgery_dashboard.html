@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-scissors"></i> Surgical services</span>
+            <h1 class="display-6 fw-bold mb-2">Operation scheduling and theatre control</h1>
+            <p class="text-white-50 mb-0">Plan procedures, manage theatre status, and move cases through pre-operative and recovery stages with clarity.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Hospital</div>
+                <div class="fs-4 fw-bold">{{ current_hospital.name|default:"All facilities" }}</div>
+                <div class="small text-white-50 mt-3">Scheduled cases</div>
+                <div class="fs-5 fw-semibold">{{ surgery.scheduled_count }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if current_patient %}
+<div class="alert alert-info border-0 mb-4">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="status-pill"><i class="bi bi-person-check"></i>Current patient</span>
+        <strong>{{ current_patient }}</strong>
+        <span class="text-secondary">Surgical scheduling will default to the active chart context when available.</span>
+    </div>
+</div>
+{% endif %}
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-scissors"></i><span>Live theatre overview</span></span>
+        <span class="metric-overview-meta">4 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-calendar2-check"></i></span>
+            <span class="metric-overview-label">Scheduled</span>
+            <strong class="metric-overview-value">{{ surgery.scheduled_count }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-check2-circle"></i></span>
+            <span class="metric-overview-label">Completed</span>
+            <strong class="metric-overview-value">{{ surgery.completed_count }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-x-circle"></i></span>
+            <span class="metric-overview-label">Cancelled</span>
+            <strong class="metric-overview-value">{{ surgery.cancelled_count }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-door-open"></i></span>
+            <span class="metric-overview-label">Theatres</span>
+            <strong class="metric-overview-value">{{ surgery.operating_rooms|length }}</strong>
+        </div>
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-calendar2-check fs-4"></i></div><div class="text-uppercase small text-secondary">Scheduled</div><div class="display-6 fw-bold">{{ surgery.scheduled_count }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-check2-circle fs-4"></i></div><div class="text-uppercase small text-secondary">Completed</div><div class="display-6 fw-bold">{{ surgery.completed_count }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-x-circle fs-4"></i></div><div class="text-uppercase small text-secondary">Cancelled</div><div class="display-6 fw-bold">{{ surgery.cancelled_count }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-door-open fs-4"></i></div><div class="text-uppercase small text-secondary">Theatres</div><div class="display-6 fw-bold">{{ surgery.operating_rooms|length }}</div></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-5">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Schedule</span><h2 class="h4 mt-3 mb-0">Book a surgical case</h2></div>
+                <span class="mini-icon"><i class="bi bi-journal-medical"></i></span>
+            </div>
+            <form method="post" class="auth-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in form %}
+                        <div class="col-12 {% if field.name != 'notes' and field.name != 'pre_op_assessment' %}col-md-6{% endif %}">
+                            <div class="form-field-stack">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="col-12 pt-2">
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-calendar-plus"></i><span>Schedule operation</span></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Theatres</span><h2 class="h4 mt-3 mb-0">Operating rooms</h2></div>
+                <span class="mini-icon"><i class="bi bi-building"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                {% for room in surgery.operating_rooms %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ room }}</div>
+                            <div class="text-secondary small">{{ room.ward.name|default:"General surgical area" }}</div>
+                        </div>
+                        {% if room.is_available %}
+                            <span class="status-pill"><i class="bi bi-check2-circle"></i>Available</span>
+                        {% else %}
+                            <span class="status-pill"><i class="bi bi-hourglass-split"></i>Reserved</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-building fs-2"></i></div>
+                    <div class="fw-semibold">No operating rooms configured</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-7">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Cases</span><h2 class="h4 mt-3 mb-0">Upcoming operations</h2></div>
+                <span class="mini-icon"><i class="bi bi-clock-history"></i></span>
+            </div>
+            <div class="workflow-lane-stack surgery-case-stack">
+                <div class="workflow-lane-row surgery-case-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Pre-op</div>
+                            <div class="text-secondary small">Latest cases waiting on readiness, timing, and room confirmation.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-clipboard2-check"></i>{{ case_groups.pre_op|length }}</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for case in case_groups.pre_op %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div class="fw-semibold">{{ case.procedure_name }}</div>
+                                    <span class="status-pill">{{ case.get_status_display }}</span>
+                                </div>
+                                <div class="text-secondary small mt-2">{{ case.patient }}</div>
+                                <div class="text-secondary small mt-2">{{ case.scheduled_start|date:"Y-m-d H:i" }}</div>
+                                <div class="text-secondary small mt-2">{{ case.surgeon|default:"Surgeon pending" }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No cases in pre-op.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+                <div class="workflow-lane-row surgery-case-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Theatre</div>
+                            <div class="text-secondary small">Cases currently in theatre, newest theatre movement first.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-door-open"></i>{{ case_groups.in_surgery|length }}</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for case in case_groups.in_surgery %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div class="fw-semibold">{{ case.procedure_name }}</div>
+                                    <span class="status-pill">{{ case.get_status_display }}</span>
+                                </div>
+                                <div class="text-secondary small mt-2">{{ case.patient }}</div>
+                                <div class="text-secondary small mt-2">{{ case.operating_room|default:"Room pending" }}</div>
+                                <div class="text-secondary small mt-2">{{ case.surgeon|default:"Surgeon pending" }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No cases in theatre.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+                <div class="workflow-lane-row surgery-case-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Recovery</div>
+                            <div class="text-secondary small">Most recent recovery cases and notes from theatre handoff.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-heart-pulse"></i>{{ case_groups.recovery|length }}</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for case in case_groups.recovery %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div class="fw-semibold">{{ case.procedure_name }}</div>
+                                    <span class="status-pill">{{ case.get_status_display }}</span>
+                                </div>
+                                <div class="text-secondary small mt-2">{{ case.patient }}</div>
+                                <div class="text-secondary small mt-2">{{ case.notes|default:"Recovery monitoring in progress" }}</div>
+                                <div class="text-secondary small mt-2">{{ case.surgeon|default:"Surgeon pending" }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No cases in recovery.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+                <div class="workflow-lane-row surgery-case-row">
+                    <div class="workflow-lane-head">
+                        <div>
+                            <div class="fw-semibold">Completed</div>
+                            <div class="text-secondary small">Latest completed or past surgical cases, ready for review and audit.</div>
+                        </div>
+                        <span class="status-pill"><i class="bi bi-check2-circle"></i>{{ case_groups.completed|length }}</span>
+                    </div>
+                    <div class="stacked-list" data-scroll-cards>
+                            {% for case in case_groups.completed %}
+                            <div class="status-card workflow-lane-item p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div class="fw-semibold">{{ case.procedure_name }}</div>
+                                    <span class="status-pill">{{ case.get_status_display }}</span>
+                                </div>
+                                <div class="text-secondary small mt-2">{{ case.patient }}</div>
+                                <div class="text-secondary small mt-2">{{ case.scheduled_start|date:"Y-m-d H:i" }}</div>
+                                <div class="text-secondary small mt-2">{{ case.surgeon|default:"Surgeon pending" }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="text-secondary small">No completed cases.</div>
+                            {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Operations flow</span><h2 class="h4 mt-3 mb-0">Current theatre controls</h2></div>
+                <span class="mini-icon"><i class="bi bi-arrow-repeat"></i></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="soft-section p-3 h-100">
+                        <div class="fw-semibold mb-2">Pre-op readiness</div>
+                        <div class="text-secondary small">Use this lane to confirm timing, room allocation, and surgeon coverage before a case advances.</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="soft-section p-3 h-100">
+                        <div class="fw-semibold mb-2">Recovery visibility</div>
+                        <div class="text-secondary small">Track patients leaving theatre so the team can coordinate recovery review, billing, and discharge planning.</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="soft-section p-3 h-100">
+                        <div class="fw-semibold mb-2">Completion and audit</div>
+                        <div class="text-secondary small">Completed cases stay visible for summary closure, audit follow-through, and cross-team handoff.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+ </div>
+{% endblock %}

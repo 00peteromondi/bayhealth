@@ -1,0 +1,840 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-person-heart"></i> Patient record</span>
+            <h1 class="display-6 fw-bold mb-2 d-flex align-items-center gap-3 flex-wrap">
+                {% if patient.user.profile_picture %}
+                    <span class="profile-avatar-lg"><img src="{{ patient.user.profile_picture.url }}" alt="{{ patient }}" class="avatar-image"></span>
+                {% else %}
+                    <span class="profile-avatar-lg"><i class="bi bi-person-circle"></i></span>
+                {% endif %}
+                <span>{{ patient }}</span>
+            </h1>
+            <p class="text-white-50 mb-0">Full care history across the BayAfya network, including conditions, visits, admissions, surgery, laboratory work, and billing.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Patient number</div>
+                <div class="fs-4 fw-bold">{{ patient.patient_number|default:"Pending" }}</div>
+                <div class="small text-white-50 mt-3">Primary facility</div>
+                <div class="fw-semibold">{{ patient.hospital.name|default:"Shared record" }}</div>
+                {% if patient.is_deceased %}
+                <div class="mt-3">
+                    <span class="status-pill danger"><i class="bi bi-heartbreak"></i>Recorded deceased{% if patient.deceased_at %} · {{ patient.deceased_at|date:"Y-m-d H:i" }}{% endif %}</span>
+                </div>
+                {% endif %}
+                {% if active_admission %}
+                <div class="mt-3">
+                    <span class="status-pill active-admission-badge"><i class="bi bi-hospital"></i>Active admission · {{ active_admission.ward.name }} · Bed {{ active_admission.bed.bed_number }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-person-vcard"></i><span>Patient record overview</span></span>
+        <span class="metric-overview-meta">{{ overview_cards|length }} items <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        {% for item in overview_cards %}
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi {{ item.icon }}"></i></span>
+            <span class="metric-overview-label">{{ item.label }}</span>
+            <strong class="metric-overview-value">{{ item.value }}</strong>
+        </div>
+        {% endfor %}
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    {% for item in overview_cards %}
+    <div class="col-sm-6 col-xl-2">
+        <div class="metric-card h-100 text-center py-4">
+            <div class="metric-icon mx-auto mb-3"><i class="bi {{ item.icon }} fs-4"></i></div>
+            <div class="text-uppercase small text-secondary">{{ item.label }}</div>
+            <div class="display-6 fw-bold">{{ item.value }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-7">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <span class="section-kicker">Timeline</span>
+                    <h2 class="h4 mt-3 mb-0">Clinical journey</h2>
+                </div>
+                <span class="mini-icon"><i class="bi bi-clock-history"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in timeline %}
+                <div class="soft-section p-3">
+                    <div class="d-flex gap-3 align-items-start">
+                        <span class="mini-icon flex-shrink-0"><i class="bi {{ item.icon }}"></i></span>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div>
+                                    <div class="fw-semibold">{{ item.title }}</div>
+                                    <div class="text-secondary small">{{ item.subtitle }}</div>
+                                </div>
+                                <span class="status-pill">{{ item.status }}</span>
+                            </div>
+                            <div class="text-secondary small mt-2"><i class="bi bi-building me-1"></i>{{ item.hospital }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-clock-history fs-2"></i></div>
+                    <div class="fw-semibold">No timeline entries yet</div>
+                    <div class="text-secondary small">Appointments, records, conditions, and operations will appear here as they are entered.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Record archive</span><h2 class="h4 mt-3 mb-0">Consolidated patient history</h2></div>
+                <a class="bh-btn bh-btn-inline bh-btn-outline-light" href="{% url 'hospital:records_hub' %}?patient={{ patient.id }}">Open records workspace</a>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in consolidated_records %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+                        <div>
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="text-secondary small">{{ item.subtitle }}</div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="status-pill">{{ item.kind }}</span>
+                            <span class="status-pill"><i class="bi bi-building"></i>{{ item.hospital }}</span>
+                        </div>
+                    </div>
+                    <div class="text-secondary small mb-2">{{ item.detail }}</div>
+                    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                        <span class="text-secondary small">{{ item.status }}</span>
+                        {% if item.url %}
+                        <a class="bh-btn bh-btn-inline bh-btn-outline" href="{{ item.url }}">View full record</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-journal-medical fs-2"></i></div>
+                    <div class="fw-semibold">No consolidated history yet</div>
+                    <div class="text-secondary small">Medical records, labs, admissions, and appointments will be unified here as they are captured.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Conditions</span><h2 class="h4 mt-3 mb-0">Active and resolved diagnoses</h2></div>
+                <span class="mini-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+            </div>
+            <div class="row g-3" data-scroll-cards>
+                {% for item in history.conditions %}
+                <div class="col-md-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <div class="fw-semibold">
+                                    {% if item.condition_name %}
+                                        {{ item.condition_name }}
+                                    {% elif item.condition %}
+                                        {{ item.condition.name }}
+                                    {% else %}
+                                        Condition recorded
+                                    {% endif %}
+                                </div>
+                                <div class="text-secondary small">{{ item.created_at|date:"Y-m-d" }}</div>
+                            </div>
+                            <span class="status-pill">{{ item.get_severity_display }}</span>
+                        </div>
+                        <div class="text-secondary small mb-3">{{ item.notes|default:"No additional notes provided." }}</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="status-pill"><i class="bi bi-building"></i>{{ item.hospital.name|default:"Shared" }}</span>
+                            {% if item.is_active %}<span class="status-pill"><i class="bi bi-check2-circle"></i>Active</span>{% else %}<span class="status-pill"><i class="bi bi-x-circle"></i>Resolved</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="empty-state p-4 text-center">
+                        <div class="empty-illustration mx-auto mb-3"><i class="bi bi-clipboard2-pulse fs-2"></i></div>
+                        <div class="fw-semibold">No diagnoses recorded</div>
+                        <div class="text-secondary small">Clinical notes and problem list items will appear here when documented.</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                <div><span class="section-kicker">Extended clinical profile</span><h2 class="h4 mt-3 mb-0">Allergies, immunizations, and long-term risk context</h2></div>
+                <span class="mini-icon"><i class="bi bi-shield-plus"></i></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="fw-semibold">Allergies</div>
+                            <span class="status-pill"><i class="bi bi-exclamation-octagon"></i>{{ allergy_entries|length }}</span>
+                        </div>
+                        <div class="record-stack" data-scroll-cards>
+                            {% for item in allergy_entries %}
+                            <div class="soft-section p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-semibold">{{ item.allergen }}</div>
+                                        <div class="text-secondary small">{{ item.reaction_type|default:"Reaction not specified" }}</div>
+                                    </div>
+                                    <span class="status-pill {% if item.severity == 'life_threatening' or item.severity == 'severe' %}danger{% elif item.severity == 'moderate' %}warning{% endif %}">{{ item.get_severity_display }}</span>
+                                </div>
+                                {% if item.notes %}<div class="text-secondary small mt-2">{{ item.notes }}</div>{% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="empty-state p-4 text-center">
+                                <div class="fw-semibold">No allergies recorded</div>
+                                <div class="text-secondary small">Use this section to surface high-risk allergens clearly for every encounter.</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="fw-semibold">Immunizations</div>
+                            <span class="status-pill"><i class="bi bi-shield-check"></i>{{ immunization_entries|length }}</span>
+                        </div>
+                        <div class="record-stack" data-scroll-cards>
+                            {% for item in immunization_entries %}
+                            <div class="soft-section p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-semibold">{{ item.vaccine_name }}</div>
+                                        <div class="text-secondary small">{{ item.administered_on }}{% if item.dose_number %} · {{ item.dose_number }}{% endif %}</div>
+                                    </div>
+                                    {% if item.next_due_on %}<span class="status-pill"><i class="bi bi-calendar-event"></i>Next {{ item.next_due_on }}</span>{% endif %}
+                                </div>
+                                {% if item.batch_number or item.manufacturer %}
+                                <div class="text-secondary small mt-2">{{ item.manufacturer|default:"Manufacturer not noted" }}{% if item.batch_number %} · Batch {{ item.batch_number }}{% endif %}</div>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="empty-state p-4 text-center">
+                                <div class="fw-semibold">No immunizations recorded</div>
+                                <div class="text-secondary small">Capture completed vaccines and upcoming dose schedules here.</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="fw-semibold">Chronic conditions</div>
+                            <span class="status-pill"><i class="bi bi-heart-pulse"></i>{{ chronic_condition_entries|length }}</span>
+                        </div>
+                        <div class="record-stack" data-scroll-cards>
+                            {% for item in chronic_condition_entries %}
+                            <div class="soft-section p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-semibold">{{ item.name }}</div>
+                                        <div class="text-secondary small">{% if item.primary_doctor %}{{ item.primary_doctor }}{% else %}Clinical team follow-up{% endif %}</div>
+                                    </div>
+                                    <span class="status-pill">{{ item.get_status_display }}</span>
+                                </div>
+                                {% if item.management_plan %}<div class="text-secondary small mt-2">{{ item.management_plan }}</div>{% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="empty-state p-4 text-center">
+                                <div class="fw-semibold">No chronic conditions recorded</div>
+                                <div class="text-secondary small">Long-term diagnoses and monitoring plans will appear here.</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="fw-semibold">Family and surgical history</div>
+                            <span class="status-pill"><i class="bi bi-diagram-3"></i>{{ family_history_entries|length }} family · {{ surgical_history_entries|length }} surgery</span>
+                        </div>
+                        <div class="record-stack" data-scroll-cards>
+                            {% for item in family_history_entries %}
+                            <div class="soft-section p-3">
+                                <div class="fw-semibold">{{ item.condition_name }}</div>
+                                <div class="text-secondary small">{{ item.relative }}{% if item.relationship %} · {{ item.relationship }}{% endif %}</div>
+                            </div>
+                            {% endfor %}
+                            {% for item in surgical_history_entries %}
+                            <div class="soft-section p-3">
+                                <div class="fw-semibold">{{ item.procedure_name }}</div>
+                                <div class="text-secondary small">{% if item.procedure_date %}{{ item.procedure_date }}{% else %}Date not recorded{% endif %}{% if item.facility_name %} · {{ item.facility_name }}{% endif %}</div>
+                            </div>
+                            {% empty %}
+                            {% if not family_history_entries %}
+                            <div class="empty-state p-4 text-center">
+                                <div class="fw-semibold">No family or surgical history recorded</div>
+                                <div class="text-secondary small">Document hereditary risk and prior operations for continuity across facilities.</div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Facilities</span><h2 class="h4 mt-3 mb-0">Hospital breakdown</h2></div>
+                <span class="mini-icon"><i class="bi bi-building-heart"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in facility_breakdown %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold mb-2">{{ item.label }}</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="status-pill"><i class="bi bi-calendar2-check"></i>{{ item.appointments }} appointments</span>
+                        <span class="status-pill"><i class="bi bi-file-medical"></i>{{ item.records }} records</span>
+                        <span class="status-pill"><i class="bi bi-clipboard2-pulse"></i>{{ item.conditions }} conditions</span>
+                        <span class="status-pill"><i class="bi bi-scissors"></i>{{ item.surgeries }} surgeries</span>
+                        <span class="status-pill"><i class="bi bi-hospital"></i>{{ item.admissions }} admissions</span>
+                        <span class="status-pill"><i class="bi bi-eyedropper"></i>{{ item.labs }} labs</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-building fs-2"></i></div>
+                    <div class="fw-semibold">No facility breakdown available</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Surgeries</span><h2 class="h4 mt-3 mb-0">Operation history</h2></div>
+                <span class="mini-icon"><i class="bi bi-scissors"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in history.surgeries %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">{{ item.procedure_name }}</div>
+                            <div class="text-secondary small">{{ item.scheduled_start|date:"Y-m-d H:i" }}</div>
+                        </div>
+                        <span class="status-pill">{{ item.get_status_display }}</span>
+                    </div>
+                    <div class="text-secondary small mt-2">{{ item.anesthesia_type|default:"Anesthesia not specified" }}</div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-scissors fs-2"></i></div>
+                    <div class="fw-semibold">No surgical history recorded</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                <div><span class="section-kicker">Documents and imaging</span><h2 class="h4 mt-3 mb-0">Clinical archive</h2></div>
+                <span class="mini-icon"><i class="bi bi-images"></i></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold mb-3">Uploaded documents</div>
+                        <div class="record-stack compact" data-scroll-cards>
+                            {% for item in document_entries %}
+                            <div class="soft-section p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-semibold">{{ item.title }}</div>
+                                        <div class="text-secondary small">{{ item.category.name|default:"General document" }} · {{ item.uploaded_at|date:"Y-m-d H:i" }}</div>
+                                    </div>
+                                    {% if item.file %}<a class="bh-btn bh-btn-inline bh-btn-outline" href="{{ item.file.url }}" target="_blank" rel="noopener">Open</a>{% endif %}
+                                </div>
+                                {% if item.summary %}<div class="text-secondary small mt-2">{{ item.summary }}</div>{% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="empty-state p-4 text-center">
+                                <div class="fw-semibold">No documents uploaded yet</div>
+                                <div class="text-secondary small">Reports, summaries, and letters will appear here.</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold mb-3">Medical images</div>
+                        <div class="record-stack compact" data-scroll-cards>
+                            {% for item in medical_image_entries %}
+                            <div class="soft-section p-3">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-semibold">{{ item.title }}</div>
+                                        <div class="text-secondary small">{{ item.get_modality_display }}{% if item.captured_at %} · {{ item.captured_at|date:"Y-m-d H:i" }}{% endif %}</div>
+                                    </div>
+                                    {% if item.image %}<a class="bh-btn bh-btn-inline bh-btn-outline" href="{{ item.image.url }}" target="_blank" rel="noopener">View</a>{% endif %}
+                                </div>
+                                {% if item.dicom_identifier or item.study_uid %}
+                                <div class="text-secondary small mt-2">
+                                    {% if item.dicom_identifier %}DICOM {{ item.dicom_identifier }}{% endif %}
+                                    {% if item.study_uid %}{% if item.dicom_identifier %} · {% endif %}Study {{ item.study_uid }}{% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <div class="empty-state p-4 text-center">
+                                <div class="fw-semibold">No imaging uploaded yet</div>
+                                <div class="text-secondary small">X-rays, CTs, MRIs, and other diagnostic images can be organized here.</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                <div><span class="section-kicker">Specialized care</span><h2 class="h4 mt-3 mb-0">Maternity, neonatal, growth, and mental health</h2></div>
+                <span class="mini-icon"><i class="bi bi-stars"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-semibold">Maternity and neonatal care</div>
+                        <span class="status-pill"><i class="bi bi-heart"></i>{{ maternity_records|length }} maternity · {{ neonatal_records|length }} neonatal</span>
+                    </div>
+                    {% if maternity_records or neonatal_records %}
+                    <div class="record-stack compact" data-scroll-cards>
+                        {% for item in maternity_records %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">EDD {% if item.estimated_delivery_date %}{{ item.estimated_delivery_date }}{% else %}pending{% endif %}</div>
+                            <div class="text-secondary small">Gravida {{ item.gravida }} · Para {{ item.para }}</div>
+                        </div>
+                        {% endfor %}
+                        {% for item in neonatal_records %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">Birth weight {% if item.birth_weight_kg %}{{ item.birth_weight_kg }} kg{% else %}not recorded{% endif %}</div>
+                            <div class="text-secondary small">Gestational age {% if item.gestational_age_weeks %}{{ item.gestational_age_weeks }} weeks{% else %}pending{% endif %}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-secondary small">No maternity or neonatal records linked to this patient yet.</div>
+                    {% endif %}
+                </div>
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-semibold">Growth and mental health</div>
+                        <span class="status-pill"><i class="bi bi-activity"></i>{{ growth_entries|length }} growth · {{ mental_health_records|length }} mental health</span>
+                    </div>
+                    {% if growth_entries or mental_health_records %}
+                    <div class="record-stack compact" data-scroll-cards>
+                        {% for item in growth_entries %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">{{ item.recorded_on }}</div>
+                            <div class="text-secondary small">Weight {{ item.weight_kg|default:"-" }} kg · Height {{ item.height_cm|default:"-" }} cm</div>
+                        </div>
+                        {% endfor %}
+                        {% for item in mental_health_records %}
+                        <div class="soft-section p-3">
+                            <div class="fw-semibold">{{ item.session_date }}</div>
+                            <div class="text-secondary small">{{ item.get_access_level_display }} · {{ item.assessment_summary|truncatechars:96 }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-secondary small">No pediatric growth or mental health records are currently attached.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if can_edit_patient_extensions %}
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                <div><span class="section-kicker">Clinical updates</span><h2 class="h4 mt-3 mb-0">Add structured records to this chart</h2></div>
+                <span class="mini-icon"><i class="bi bi-plus-square"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                <details class="profile-expand-card" open>
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy"><div class="fw-semibold">Allergy and immunization updates</div><p class="text-secondary mb-0">Capture safety-critical allergens and vaccine history in a structured way.</p></div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <form method="post" action="{% url 'hospital:create_allergy' patient.id %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in allergy_form %}
+                                        <div class="col-12 {% if field.name != 'notes' %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-shield-plus"></i><span>Save allergy</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <form method="post" action="{% url 'hospital:create_immunization' patient.id %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in immunization_form %}
+                                        <div class="col-12 {% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-shield-check"></i><span>Save immunization</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="profile-expand-card">
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy"><div class="fw-semibold">Long-term and hereditary context</div><p class="text-secondary mb-0">Track chronic conditions, family history, and previous operations for continuity of care.</p></div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <form method="post" action="{% url 'hospital:create_chronic_condition' patient.id %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in chronic_condition_form %}
+                                        <div class="col-12 {% if field.name == 'management_plan' or field.name == 'monitoring_notes' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-heart-pulse"></i><span>Save chronic condition</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <form method="post" action="{% url 'hospital:create_family_history' patient.id %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in family_history_form %}
+                                        <div class="col-12 {% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-outline" type="submit"><i class="bi bi-diagram-3"></i><span>Save family history</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <form method="post" action="{% url 'hospital:create_surgical_history' patient.id %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in surgical_history_form %}
+                                        <div class="col-12 {% if field.name in 'outcome complications notes' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-outline" type="submit"><i class="bi bi-scissors"></i><span>Save surgical history</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="profile-expand-card">
+                    <summary class="profile-expand-summary">
+                        <div class="profile-expand-summary-copy"><div class="fw-semibold">Consent, documents, and imaging</div><p class="text-secondary mb-0">Store signed consents, uploaded reports, and medical images directly on this chart.</p></div>
+                        <span class="profile-expand-summary-meta"><i class="bi bi-chevron-down"></i></span>
+                    </summary>
+                    <div class="profile-expand-body pt-4">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <form method="post" action="{% url 'hospital:create_consent_form_record' patient.id %}" enctype="multipart/form-data" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in consent_form_record_form %}
+                                        <div class="col-12 {% if field.name in 'notes document' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-file-earmark-lock"></i><span>Save consent</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <form method="post" action="{% url 'hospital:create_patient_document' patient.id %}" enctype="multipart/form-data" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in document_form %}
+                                        <div class="col-12 {% if field.name == 'summary' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-outline" type="submit"><i class="bi bi-folder-plus"></i><span>Upload document</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <form method="post" action="{% url 'hospital:create_medical_image' patient.id %}" enctype="multipart/form-data" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                                    {% csrf_token %}
+                                    <div class="row g-3">
+                                        {% for field in medical_image_form %}
+                                        <div class="col-12 {% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+                                            <div class="form-field-stack">
+                                                {{ field.label_tag }}
+                                                {{ field }}
+                                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="col-12"><button class="bh-btn bh-btn-outline" type="submit"><i class="bi bi-image"></i><span>Upload image</span></button></div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if can_manage_patient_access and assistant_access_form %}
+        <details class="card p-4 mb-4 assistant-access-panel" open>
+            <summary class="d-flex justify-content-between align-items-center list-unstyled">
+                <div><span class="section-kicker"><i class="bi bi-shield-lock"></i>Assistant access</span><h2 class="h4 mt-3 mb-0">Grant BayAfya Assistant access</h2></div>
+                <span class="mini-icon"><i class="bi bi-stars"></i></span>
+            </summary>
+            <div class="soft-section p-3 mt-3">
+                <div class="d-grid gap-3 mb-4">
+                    <div class="command-note-item">
+                        <span class="mini-icon flex-shrink-0"><i class="bi bi-clipboard2-check"></i></span>
+                        <div>
+                            <div class="fw-semibold">Approve patient record access for BayAfya Assistant</div>
+                            <div class="text-secondary small">Choose the staff member who may assist with this chart, set an expiration if needed, and keep a clear approval trail.</div>
+                        </div>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'grant_assistant_record_access' %}" class="auth-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="form-field-stack">
+                                {{ assistant_access_form.requester.label_tag }}
+                                {{ assistant_access_form.requester }}
+                                {% for error in assistant_access_form.requester.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-field-stack">
+                                {{ assistant_access_form.patient.label_tag }}
+                                {{ assistant_access_form.patient }}
+                                {% for error in assistant_access_form.patient.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-field-stack">
+                                {{ assistant_access_form.expires_at.label_tag }}
+                                {{ assistant_access_form.expires_at }}
+                                {% for error in assistant_access_form.expires_at.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-field-stack">
+                                {{ assistant_access_form.reason.label_tag }}
+                                {{ assistant_access_form.reason }}
+                                {% for error in assistant_access_form.reason.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-12 pt-2">
+                            <button class="bh-btn bh-btn-primary" type="submit" data-auth-submit><i class="bi bi-shield-check"></i><span>Approve record access</span></button>
+                        </div>
+                    </div>
+                </form>
+                <div class="mt-4">
+                    <div class="fw-semibold mb-3">Recent approvals for this patient</div>
+                    <div class="d-grid gap-3">
+                        {% for grant in assistant_access_grants %}
+                        <div class="soft-section p-3">
+                            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                                <div>
+                                    <div class="fw-semibold">{{ grant.requester.get_full_name|default:grant.requester.username }}</div>
+                                    <div class="text-secondary small">Approved by {{ grant.approved_by.get_full_name|default:grant.approved_by.username|default:"BayAfya" }}</div>
+                                </div>
+                                <span class="status-pill"><i class="bi bi-check2-circle"></i>Approved</span>
+                            </div>
+                            <div class="text-secondary small mt-2">
+                                {% if grant.reason %}{{ grant.reason }}{% else %}Hospital-approved record access via BayAfya Assistant.{% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="empty-state p-4 text-center">
+                            <div class="empty-illustration mx-auto mb-3"><i class="bi bi-shield-lock fs-2"></i></div>
+                            <div class="fw-semibold">No approved assistant grants yet</div>
+                            <div class="text-secondary small">Approve access here when a staff member needs the assistant to help with this record.</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </details>
+        {% endif %}
+
+        {% if can_mark_deceased %}
+        <details class="card p-4 mb-4 profile-expand-card" open>
+            <summary class="profile-expand-summary">
+                <div class="profile-expand-summary-copy">
+                    <span class="section-kicker">Global status</span>
+                    <h2 class="h4 mt-3 mb-0">Patient death record</h2>
+                    <p class="text-secondary mb-0">Use this only when a patient has formally passed away so access can be locked consistently across BayAfya.</p>
+                </div>
+                <span class="profile-expand-summary-meta"><i class="bi bi-heartbreak"></i><span>{% if patient.is_deceased %}Recorded{% else %}Pending{% endif %}</span><i class="bi bi-chevron-down"></i></span>
+            </summary>
+            <div class="profile-expand-body pt-4">
+                {% if patient.is_deceased %}
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">This patient has already been recorded as deceased.</div>
+                    <div class="text-secondary small mt-2">
+                        {% if patient.deceased_at %}Recorded at {{ patient.deceased_at|date:"Y-m-d H:i" }}.{% endif %}
+                        {% if patient.deceased_notes %} {{ patient.deceased_notes }}{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <form method="post" action="{% url 'hospital:mark_patient_deceased' patient.id %}" class="auth-form" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        {% for field in death_record_form %}
+                        <div class="col-12 {% if field.name == 'deceased_at' %}col-md-6{% endif %}">
+                            <div class="form-field-stack">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="col-12">
+                            <button class="bh-btn bh-btn-danger" type="submit"><i class="bi bi-heartbreak"></i><span>Record death globally</span></button>
+                        </div>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </details>
+        {% endif %}
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Support care</span><h2 class="h4 mt-3 mb-0">Appointments, labs, and billing</h2></div>
+                <span class="mini-icon"><i class="bi bi-clipboard-data"></i></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold mb-2">Upcoming appointments</div>
+                        {% for item in history.appointments|slice:":3" %}
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>
+                                    <div class="fw-semibold">{{ item.doctor }}</div>
+                                    <div class="text-secondary small">{{ item.appointment_date }} {{ item.appointment_time }}</div>
+                                </div>
+                                <span class="status-pill">{{ item.get_status_display }}</span>
+                            </div>
+                        {% empty %}
+                            <div class="text-secondary small">No appointments available.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold mb-2">Laboratory requests</div>
+                        {% for item in history.labs|slice:":3" %}
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>
+                                    <div class="fw-semibold">{{ item.test_name }}</div>
+                                    <div class="text-secondary small">{{ item.requested_at|date:"Y-m-d H:i" }}</div>
+                                </div>
+                                <span class="status-pill">{{ item.get_status_display }}</span>
+                            </div>
+                        {% empty %}
+                            <div class="text-secondary small">No lab requests available.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="soft-section p-3">
+                        <div class="fw-semibold mb-2">Billing</div>
+                        {% for item in history.billings|slice:":3" %}
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>
+                                    <div class="fw-semibold">{{ item.description|default:item.get_billing_type_display|default:"Billing item" }}</div>
+                                    <div class="small">{{ item.amount }}</div>
+                                    <div class="text-secondary small">{{ item.created_at|date:"Y-m-d H:i" }}</div>
+                                </div>
+                                <span class="status-pill">{% if item.paid %}Paid{% else %}Outstanding{% endif %}</span>
+                            </div>
+                        {% empty %}
+                            <div class="text-secondary small">No billing records available.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

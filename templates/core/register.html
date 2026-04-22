@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-page-shell">
+<div class="card auth-card overflow-hidden">
+    <div class="row g-0">
+        <div class="col-lg-5 auth-visual auth-carousel-shell p-3 p-lg-4 d-flex flex-column">
+            <div id="registerExperienceCarousel" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="5000" data-bs-touch="true">
+                <div class="carousel-inner h-100">
+                    <div class="carousel-item active h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-person-badge"></i> New account</span>
+                            <h1 class="auth-carousel-title fw-bold mb-2">Create one secure identity for care across hospitals and services.</h1>
+                            <p class="text-white-50 mb-3 auth-carousel-copy">Patients, hospital owners, clinicians, pharmacy teams, counseling teams, and emergency operations enter one connected care environment.</p>
+                            <div class="auth-carousel-metric-grid">
+                                <div class="auth-carousel-metric">
+                                    <i class="bi bi-shield-check"></i>
+                                    <div>
+                                        <div class="fw-semibold">Protected access</div>
+                                        <div class="small text-white-50">Profiles open only with the right hospital approval path.</div>
+                                    </div>
+                                </div>
+                                <div class="auth-carousel-metric">
+                                    <i class="bi bi-diagram-3"></i>
+                                    <div>
+                                        <div class="fw-semibold">Shared health history</div>
+                                        <div class="small text-white-50">A single patient identity follows care across facilities.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-person-heart"></i> For patients</span>
+                            <h2 class="auth-carousel-title fw-bold mb-2">Register once and manage the full care journey from first visit to follow-up.</h2>
+                            <div class="auth-carousel-list">
+                                <div class="auth-carousel-list-item"><i class="bi bi-calendar2-check"></i><span>Book hospital and telemedicine appointments with scheduled clinicians.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-journal-medical"></i><span>Keep consultations, admissions, prescriptions, lab updates, and surgery planning linked to one profile.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-ambulance"></i><span>Access pharmacy, mental health, symptom guidance, and emergency response from the same account.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-hospital"></i> For hospital owners</span>
+                            <h2 class="auth-carousel-title fw-bold mb-2">Open a hospital workspace and bring teams onto one operational platform.</h2>
+                            <div class="auth-carousel-list">
+                                <div class="auth-carousel-list-item"><i class="bi bi-key"></i><span>Issue authorization codes for doctors, nurses, reception, laboratory, pharmacy, counseling, and emergency staff.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-people"></i><span>Manage staff access, patient movement, admissions, theatre activity, and clinical visibility from one dashboard.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-graph-up-arrow"></i><span>Track conditions, age-group trends, and care demand across your hospital population.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="auth-carousel-card h-100">
+                            <span class="hero-chip mb-3"><i class="bi bi-person-workspace"></i> For clinical and operations staff</span>
+                            <h2 class="auth-carousel-title fw-bold mb-2">Join with hospital authorization and step into the exact tools your role needs.</h2>
+                            <div class="auth-carousel-list">
+                                <div class="auth-carousel-list-item"><i class="bi bi-stethoscope"></i><span>Doctors move from booked visits into records, conditions, admissions, theatre planning, and follow-up.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-capsule-pill"></i><span>Pharmacy, laboratory, counseling, and emergency teams work from role-aware views built for real service delivery.</span></div>
+                                <div class="auth-carousel-list-item"><i class="bi bi-stars"></i><span>BayAfya Assistant supports triage, documentation prompts, and patient-centered workflow suggestions.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="auth-carousel-indicators d-none" aria-hidden="true">
+                    <button type="button" data-bs-target="#registerExperienceCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Registration information 1"></button>
+                    <button type="button" data-bs-target="#registerExperienceCarousel" data-bs-slide-to="1" aria-label="Registration information 2"></button>
+                    <button type="button" data-bs-target="#registerExperienceCarousel" data-bs-slide-to="2" aria-label="Registration information 3"></button>
+                    <button type="button" data-bs-target="#registerExperienceCarousel" data-bs-slide-to="3" aria-label="Registration information 4"></button>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7 p-2 pt-0 p-lg-3 pt-lg-0 d-flex flex-column auth-form-panel">
+            <span class="section-kicker">Registration</span>
+            <h2 class="auth-form-title mt-0 mb-2">Open your account</h2>
+            {% if form.errors %}
+                <div hidden>
+                    {% for error in form.non_field_errors %}
+                        <div data-message-toast="{{ error }}" data-message-title="Registration error" data-message-tone="danger"></div>
+                    {% endfor %}
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <div data-message-toast="{{ error }}" data-message-title="Registration error" data-message-tone="danger"></div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div class="soft-section p-2 mb-2">
+                <div class="fw-semibold mb-1">Registration guidance</div>
+                <div class="text-secondary small">Patients can register directly. Hospital owners create a new facility here. Doctors, nurses, reception, laboratory, pharmacy, counseling, and emergency staff use an authorization code issued by their hospital.</div>
+            </div>
+            <div class="auth-form-scroller auth-register-scroller">
+            <form method="post" class="auth-form auth-wizard d-flex flex-column flex-grow-1" data-register-wizard>
+                {% csrf_token %}
+                <div class="auth-wizard-progress mb-3">
+                    <div class="auth-wizard-progress-bar">
+                        <span class="auth-wizard-progress-fill" data-register-progress></span>
+                    </div>
+                    <div class="small text-secondary" data-register-step-label>Step 1 of 5</div>
+                </div>
+
+                <div class="auth-wizard-step is-active" data-step-index="0" data-step-title="Account access">
+                    <div class="auth-step-card">
+                        <div class="auth-step-header">
+                            <h3 class="h4 mb-1">Account access</h3>
+                            <p class="text-secondary small mb-0">Choose the username, email, and password that will secure your BayAfya identity.</p>
+                        </div>
+                        <div class="auth-grid auth-grid-single">
+                            <div class="form-field-stack">
+                                {{ form.username.label_tag }}
+                                {{ form.username }}
+                                {% for error in form.username.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="form-field-stack">
+                                {{ form.email.label_tag }}
+                                {{ form.email }}
+                                {% for error in form.email.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="auth-grid auth-grid-two">
+                                <div class="form-field-stack">
+                                    {{ form.password.label_tag }}
+                                    {{ form.password }}
+                                    {% for error in form.password.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                    <div class="bh-field-help" data-password-meter-label>Password strength: waiting</div>
+                                    <div class="password-strength-track"><span class="password-strength-fill" data-password-meter></span></div>
+                                </div>
+                                <div class="form-field-stack">
+                                    {{ form.confirm_password.label_tag }}
+                                    {{ form.confirm_password }}
+                                    {% for error in form.confirm_password.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                    <div class="bh-field-help" data-password-match-label>Confirm password to continue.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-wizard-step" data-step-index="1" data-step-title="Personal identity">
+                    <div class="auth-step-card">
+                        <div class="auth-step-header">
+                            <h3 class="h4 mb-1">Personal identity</h3>
+                            <p class="text-secondary small mb-0">Capture the personal details needed for safe patient matching and professional identity.</p>
+                        </div>
+                        <div class="auth-grid auth-grid-two">
+                            <div class="form-field-stack">
+                                {{ form.first_name.label_tag }}
+                                {{ form.first_name }}
+                                {% for error in form.first_name.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="form-field-stack">
+                                {{ form.last_name.label_tag }}
+                                {{ form.last_name }}
+                                {% for error in form.last_name.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="form-field-stack">
+                                {{ form.phone.label_tag }}
+                                {{ form.phone }}
+                                {% for error in form.phone.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="form-field-stack">
+                                {{ form.date_of_birth.label_tag }}
+                                {{ form.date_of_birth }}
+                                {% for error in form.date_of_birth.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-wizard-step" data-step-index="2" data-step-title="Profile and access">
+                    <div class="auth-step-card">
+                        <div class="auth-step-header">
+                            <h3 class="h4 mb-1">Profile and access</h3>
+                            <p class="text-secondary small mb-0">Select the role you are registering for and add the authorization code where hospital approval is required.</p>
+                        </div>
+                        <div class="auth-grid auth-grid-single">
+                            <div class="auth-grid auth-grid-two">
+                                <div class="form-field-stack">
+                                    {{ form.role.label_tag }}
+                                    {{ form.role }}
+                                    {% for error in form.role.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                </div>
+                                <div class="form-field-stack">
+                                    {{ form.invitation_code.label_tag }}
+                                    {{ form.invitation_code }}
+                                    {% for error in form.invitation_code.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                </div>
+                            </div>
+                            <div class="soft-section p-3">
+                                <div class="fw-semibold mb-1">Access path</div>
+                                <div class="small text-secondary">Patients may register directly. Hospital owners create a facility. Staff roles continue using a hospital-issued authorization code.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-wizard-step" data-step-index="3" data-step-title="Contact location">
+                    <div class="auth-step-card">
+                        <div class="auth-step-header">
+                            <h3 class="h4 mb-1">Contact location</h3>
+                            <p class="text-secondary small mb-0">Set the address that should be associated with this account. BayAfya uses location support in the background and defaults to Nairobi, Kenya when no location is selected.</p>
+                        </div>
+                        <div class="auth-grid auth-grid-single">
+                            <div class="form-field-stack">
+                                {{ form.address.label_tag }}
+                                {{ form.address }}
+                                {% for error in form.address.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-wizard-step" data-step-index="4" data-step-title="Hospital setup and review">
+                    <div class="auth-step-card">
+                        <div class="auth-step-header">
+                            <h3 class="h4 mb-1">Hospital setup and review</h3>
+                            <p class="text-secondary small mb-0">Hospital owners create a new facility here. Other users can review details and submit their account request.</p>
+                        </div>
+                        <div class="auth-grid auth-grid-single">
+                            <div data-admin-only-section>
+                                <div class="soft-section p-3">
+                                    <div class="fw-semibold mb-1">Hospital setup</div>
+                                    <div class="text-secondary small mb-3">This section is required only when the selected role is hospital admin.</div>
+                                    <div class="auth-grid auth-grid-single">
+                                        <div class="auth-grid auth-grid-two">
+                                            <div class="form-field-stack">
+                                                {{ form.hospital_name.label_tag }}
+                                                {{ form.hospital_name }}
+                                                {% for error in form.hospital_name.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                            <div class="form-field-stack">
+                                                {{ form.hospital_code.label_tag }}
+                                                {{ form.hospital_code }}
+                                                <div class="form-text">Generated automatically from the hospital name.</div>
+                                                {% for error in form.hospital_code.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="form-field-stack">
+                                            {{ form.hospital_address.label_tag }}
+                                            {{ form.hospital_address }}
+                                            {% for error in form.hospital_address.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="soft-section p-3">
+                                <div class="fw-semibold mb-1">Before you submit</div>
+                                <div class="small text-secondary">Review your role, password, access code, and location details. Once submitted, BayAfya will open the appropriate workspace for your profile.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-wizard-actions pt-3">
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <button class="bh-btn bh-btn-outline-light" type="button" data-register-prev disabled><i class="bi bi-arrow-left"></i><span>Previous</span></button>
+                        <button class="bh-btn bh-btn-primary" type="button" data-register-next><span>Next</span><i class="bi bi-arrow-right"></i></button>
+                        <button class="bh-btn bh-btn-primary d-none" type="submit" data-register-submit data-auth-submit><i class="bi bi-person-plus"></i><span>Register</span></button>
+                    </div>
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <a class="bh-btn bh-btn-outline-light" href="{% url 'login' %}" data-auth-link><i class="bi bi-box-arrow-in-right"></i><span>Sign in</span></a>
+                        <a class="bh-btn bh-btn-surface" href="{% url 'home' %}" data-auth-link><i class="bi bi-house-door"></i><span>Return home</span></a>
+                    </div>
+                </div>
+            </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="auth-page-footer mt-3">
+    <span class="auth-page-footer-copy">© {% now "Y" %} BayAfya</span>
+    <span>·</span>
+    <a href="{% url 'terms' %}">Terms</a>
+    <span>·</span>
+    <a href="{% url 'privacy' %}">Privacy</a>
+    <span>·</span>
+    <a href="{% url 'support' %}">Help &amp; Support</a>
+</div>
+</div>
+{% endblock %}

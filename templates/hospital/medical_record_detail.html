@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-file-medical"></i> Medical record detail</span>
+            <h1 class="display-6 fw-bold mb-2">{{ patient }}</h1>
+            <p class="text-white-50 mb-0">Detailed clinical entry including SOAP narrative, diagnosis, plan, and linked context.</p>
+        </div>
+        <div class="col-lg-4">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Recorded</div>
+                <div class="fs-5 fw-bold">{{ record.created_at|date:"Y-m-d H:i" }}</div>
+                <div class="small text-white-50 mt-3">Author</div>
+                <div class="fw-semibold">{{ record.doctor|default:"Care team" }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Clinical summary</span><h2 class="h4 mt-3 mb-0">{{ record.diagnosis|default:"Clinical record" }}</h2></div>
+                <span class="mini-icon"><i class="bi bi-journal-text"></i></span>
+            </div>
+            <div class="row g-3">
+                <div class="col-lg-6"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Subjective</div><div class="text-secondary small">{{ record.subjective|default:"No subjective notes recorded." }}</div></div></div>
+                <div class="col-lg-6"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Objective</div><div class="text-secondary small">{{ record.objective|default:"No objective findings recorded." }}</div></div></div>
+                <div class="col-lg-6"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Assessment</div><div class="text-secondary small">{{ record.assessment|default:"No assessment notes recorded." }}</div></div></div>
+                <div class="col-lg-6"><div class="soft-section p-3 h-100"><div class="fw-semibold mb-2">Plan</div><div class="text-secondary small">{{ record.plan|default:"No care plan notes recorded." }}</div></div></div>
+                <div class="col-12"><div class="soft-section p-3"><div class="fw-semibold mb-2">Prescription</div><div class="text-secondary small">{{ record.prescription|default:"No prescription attached to this record." }}</div></div></div>
+                <div class="col-12"><div class="soft-section p-3"><div class="fw-semibold mb-2">Additional notes</div><div class="text-secondary small">{{ record.notes|default:"No extra notes recorded." }}</div></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Record context</span><h2 class="h4 mt-3 mb-0">Patient and facility</h2></div>
+                <span class="mini-icon"><i class="bi bi-building-heart"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ patient }}</div>
+                    <div class="text-secondary small">{{ patient.patient_number|default:"Patient number pending" }}</div>
+                </div>
+                <div class="soft-section p-3">
+                    <div class="fw-semibold">{{ record.hospital.name|default:"Shared record" }}</div>
+                    <div class="text-secondary small">Facility linked to this record entry.</div>
+                </div>
+                <a class="bh-btn bh-btn-outline-light" href="{% url 'hospital:patient_detail' patient.id %}"><i class="bi bi-person-vcard"></i><span>Open patient history</span></a>
+                <a class="bh-btn bh-btn-outline-light" href="{% url 'hospital:records_hub' %}?patient={{ patient.id }}"><i class="bi bi-folder2-open"></i><span>Open records workspace</span></a>
+            </div>
+        </div>
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Related records</span><h2 class="h4 mt-3 mb-0">Recent entries</h2></div>
+                <span class="mini-icon"><i class="bi bi-clock-history"></i></span>
+            </div>
+            <div class="d-grid gap-3" data-scroll-cards>
+                {% for item in sibling_records %}
+                <a class="soft-section p-3 text-decoration-none" href="{% url 'hospital:medical_record_detail' item.id %}">
+                    <div class="fw-semibold text-reset">{{ item.diagnosis|default:"Clinical record" }}</div>
+                    <div class="text-secondary small">{{ item.created_at|date:"Y-m-d H:i" }} · {{ item.doctor|default:"Care team" }}</div>
+                </a>
+                {% empty %}
+                <div class="text-secondary small">No other medical records are linked to this patient yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

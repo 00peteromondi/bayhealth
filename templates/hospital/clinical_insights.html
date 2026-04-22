@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block content %}
+<div data-live-page-root>
+<section class="banner-card p-4 p-lg-5 mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+            <span class="hero-chip mb-3"><i class="bi bi-graph-up-arrow"></i> Clinical insights</span>
+            <h1 class="display-6 fw-bold mb-2">Hospital condition intelligence</h1>
+            <p class="text-white-50 mb-0">Review the conditions that are most common, the age bands they affect, and the patients who need the closest follow-up.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <div class="hero-floating-card p-4">
+                <div class="small text-white-50">Hospital</div>
+                <div class="fs-4 fw-bold">{{ current_hospital.name|default:"All facilities" }}</div>
+                <div class="small text-white-50 mt-3">Active diagnoses</div>
+                <div class="fs-5 fw-semibold">{{ analytics.active_conditions_total }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if current_patient %}
+<div class="alert alert-info border-0 mb-4">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="status-pill"><i class="bi bi-person-check"></i>Current patient</span>
+        <strong>{{ current_patient }}</strong>
+        <span class="text-secondary">Condition entries will default to the active chart context when you are reviewing a patient.</span>
+    </div>
+</div>
+{% endif %}
+
+<details class="metric-overview-card d-md-none mb-4" open>
+    <summary class="metric-overview-toggle">
+        <span class="metric-overview-title"><i class="bi bi-graph-up-arrow"></i><span>Live clinical overview</span></span>
+        <span class="metric-overview-meta">4 metrics <i class="bi bi-chevron-down"></i></span>
+    </summary>
+    <div class="metric-overview-list">
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-people"></i></span>
+            <span class="metric-overview-label">Patients</span>
+            <strong class="metric-overview-value">{{ summary.patients }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+            <span class="metric-overview-label">Active conditions</span>
+            <strong class="metric-overview-value">{{ summary.active_conditions }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-hospital"></i></span>
+            <span class="metric-overview-label">Admissions</span>
+            <strong class="metric-overview-value">{{ summary.active_admissions }}</strong>
+        </div>
+        <div class="metric-overview-item">
+            <span class="metric-icon"><i class="bi bi-scissors"></i></span>
+            <span class="metric-overview-label">Scheduled surgery</span>
+            <strong class="metric-overview-value">{{ summary.scheduled_surgeries }}</strong>
+        </div>
+    </div>
+</details>
+
+<div class="row g-4 mb-4 d-none d-md-flex">
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-people fs-4"></i></div><div class="text-uppercase small text-secondary">Patients</div><div class="display-6 fw-bold">{{ summary.patients }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-clipboard2-pulse fs-4"></i></div><div class="text-uppercase small text-secondary">Active conditions</div><div class="display-6 fw-bold">{{ summary.active_conditions }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-hospital fs-4"></i></div><div class="text-uppercase small text-secondary">Admissions</div><div class="display-6 fw-bold">{{ summary.active_admissions }}</div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="metric-card h-100 text-center py-4"><div class="metric-icon mx-auto mb-3"><i class="bi bi-scissors fs-4"></i></div><div class="text-uppercase small text-secondary">Scheduled surgery</div><div class="display-6 fw-bold">{{ summary.scheduled_surgeries }}</div></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-7">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                <div><span class="section-kicker">Reporting</span><h2 class="h4 mt-3 mb-0">Condition and disease reports</h2></div>
+                <form method="get" class="bh-query-panel bh-query-inline">
+                    <div class="bh-query-grid bh-query-grid-tight">
+                        <div class="bh-query-field">
+                            <label for="insightPeriod">Window</label>
+                            <select id="insightPeriod" class="form-select" name="period">
+                                <option value="day" {% if reporting.period == "day" %}selected{% endif %}>Daily</option>
+                                <option value="week" {% if reporting.period == "week" %}selected{% endif %}>Weekly</option>
+                                <option value="month" {% if reporting.period == "month" %}selected{% endif %}>Monthly</option>
+                                <option value="custom" {% if reporting.period == "custom" %}selected{% endif %}>Custom</option>
+                            </select>
+                        </div>
+                        <div class="bh-query-field">
+                            <label for="insightStart">Start</label>
+                            <input id="insightStart" class="form-control" type="date" name="start" value="{{ reporting.start|date:'Y-m-d' }}">
+                        </div>
+                        <div class="bh-query-field">
+                            <label for="insightEnd">End</label>
+                            <input id="insightEnd" class="form-control" type="date" name="end" value="{{ reporting.end|date:'Y-m-d' }}">
+                        </div>
+                        <div class="bh-query-actions">
+                            <button class="bh-btn bh-btn-primary bh-btn-inline" type="submit"><i class="bi bi-funnel"></i><span>Apply</span></button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="small text-secondary">Condition entries</div><div class="fs-3 fw-bold">{{ reporting.data.entries_total }}</div></div></div>
+                <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="small text-secondary">Lab results</div><div class="fs-3 fw-bold">{{ reporting.data.lab_results_total }}</div></div></div>
+                <div class="col-md-4"><div class="soft-section p-3 h-100"><div class="small text-secondary">Window</div><div class="fw-semibold">{{ reporting.start }} to {{ reporting.end }}</div></div></div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Prevalence</span><h2 class="h4 mt-3 mb-0">Conditions by age group</h2></div>
+                <span class="mini-icon"><i class="bi bi-pie-chart"></i></span>
+            </div>
+            <div class="chart-card p-4">
+                {% for item in analytics.age_groups %}
+                <div class="chart-row">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-semibold">{{ item.label }}</span>
+                        <span class="text-secondary small">{{ item.value }}</span>
+                    </div>
+                    <div class="chart-bar-track">
+                        <div class="chart-bar-fill" style="width: {% widthratio item.value analytics.active_conditions_total 100 %}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-pie-chart fs-2"></i></div>
+                    <div class="fw-semibold">No age group data yet</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Common conditions</span><h2 class="h4 mt-3 mb-0">Top active diagnoses</h2></div>
+                <span class="mini-icon"><i class="bi bi-clipboard2-pulse"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                {% for item in analytics.top_conditions %}
+                <div class="soft-section p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="fw-semibold">{{ item.label }}</div>
+                        <span class="status-pill">{{ item.value }}</span>
+                    </div>
+                    <div class="chart-bar-track">
+                        <div class="chart-bar-fill" style="width: {% widthratio item.value analytics.active_conditions_total 100 %}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-clipboard2-pulse fs-2"></i></div>
+                    <div class="fw-semibold">No condition records yet</div>
+                    <div class="text-secondary small">Create records from the clinical dashboard or let the automatic diagnosis mapping run from medical notes.</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Patient follow-up</span><h2 class="h4 mt-3 mb-0">Patients with the highest condition load</h2></div>
+                <span class="mini-icon"><i class="bi bi-person-lines-fill"></i></span>
+            </div>
+            <div class="d-grid gap-3">
+                {% for item in analytics.high_touch_patients %}
+                <a class="module-link" href="{% url 'hospital:patient_detail' item.patient.id %}">
+                    <div class="feature-card h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">{{ item.patient }}</div>
+                                <div class="text-secondary small">{{ item.patient.age_group }} · {{ item.patient.patient_number|default:"Pending" }}</div>
+                            </div>
+                            <span class="status-pill">{{ item.condition_count }} conditions</span>
+                        </div>
+                    </div>
+                </a>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-person-lines-fill fs-2"></i></div>
+                    <div class="fw-semibold">No high-load patients identified</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Severity</span><h2 class="h4 mt-3 mb-0">Condition intensity</h2></div>
+                <span class="mini-icon"><i class="bi bi-exclamation-triangle"></i></span>
+            </div>
+            <div class="d-grid gap-2">
+                {% for item in analytics.severity_breakdown %}
+                <div class="soft-section p-3 d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">{{ item.label }}</span>
+                    <span class="status-pill">{{ item.value }}</span>
+                </div>
+                {% empty %}
+                <div class="empty-state p-4 text-center">
+                    <div class="empty-illustration mx-auto mb-3"><i class="bi bi-exclamation-triangle fs-2"></i></div>
+                    <div class="fw-semibold">No severity distribution yet</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="section-kicker">Record entry</span><h2 class="h4 mt-3 mb-0">Log a patient condition</h2></div>
+                <span class="mini-icon"><i class="bi bi-pen"></i></span>
+            </div>
+            <form method="post" action="{% url 'hospital:record_patient_condition' %}" class="auth-form bh-form-panel" data-async-dashboard-form data-async-behavior="live-root-refresh">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in condition_form %}
+                        <div class="col-12 {% if field.name != 'notes' %}col-md-6{% endif %}">
+                            <div class="form-field-stack">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                {% for error in field.errors %}<div class="bh-field-error">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="col-12 pt-2">
+                        <button class="bh-btn bh-btn-primary" type="submit"><i class="bi bi-check2-circle"></i><span>Save condition</span></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

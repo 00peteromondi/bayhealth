@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0; background:#eef5f8; font-family:Arial, Helvetica, sans-serif; color:#153147;">
+  <div style="max-width:640px; margin:0 auto; padding:24px;">
+    <div style="background:linear-gradient(135deg,#153147 0%,#1f5f6d 50%,#67b4ba 100%); border-radius:24px; padding:28px; color:#fff; box-shadow:0 18px 40px rgba(21,49,71,.18);">
+      <div style="display:inline-flex; align-items:center; gap:10px; padding:8px 14px; border-radius:999px; background:rgba(255,255,255,.14); font-size:14px; font-weight:700; margin-bottom:18px;">
+        <span style="font-size:18px;">&#x1F497;</span> BayAfya verification
+      </div>
+      <h1 style="margin:0 0 14px; font-size:28px; line-height:1.2;">Verify your email to continue</h1>
+      <p style="margin:0 0 18px; font-size:16px; line-height:1.6; color:rgba(255,255,255,.84);">Hello {{ user.get_full_name|default:user.username }}, please confirm this email address to activate your BayAfya account.</p>
+      <div style="background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); border-radius:18px; padding:18px; margin-bottom:18px;">
+        <div style="font-size:14px; color:rgba(255,255,255,.75); margin-bottom:8px;">Your 7-digit verification code</div>
+        <div style="display:inline-block; color:#153147; background:#fff3a6; padding:12px 18px; border-radius:14px; text-decoration:none; font-weight:800; letter-spacing:0.24em; font-size:24px;">{{ verification_code }}</div>
+        <div style="margin-top:14px; font-size:13px; line-height:1.5; color:rgba(255,255,255,.8);">Enter this code on the verification page below.</div>
+        <a href="{{ verification_url }}" style="display:inline-block; margin-top:14px; color:#fff; background:#2f7e79; padding:12px 18px; border-radius:14px; text-decoration:none; font-weight:700;">Open verification page</a>
+        <div style="margin-top:14px; font-size:13px; line-height:1.5; color:rgba(255,255,255,.8); word-break:break-all;">{{ verification_url }}</div>
+      </div>
+      <p style="margin:0; font-size:14px; line-height:1.6; color:rgba(255,255,255,.78);">If you did not create this account, you can ignore this message.</p>
+    </div>
+    <p style="margin:14px 0 0; font-size:12px; color:#6b7c8a; text-align:center;">Sent by {{ platform_name }}</p>
+  </div>
+</body>
+</html>
