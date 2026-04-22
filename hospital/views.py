@@ -2250,6 +2250,7 @@ def dashboard(request):
         }
         context.update(_walk_in_dashboard_context(hospital))
         context.update(_operations_workspace_context(request, active_access=active_access, hospital=hospital))
+        context["workflow_focus"] = _walk_in_role_panel(active_access, hospital, request)
         return render(request, "hospital/operations_dashboard.html", context)
 
     patient = get_object_or_404(Patient, user=user)

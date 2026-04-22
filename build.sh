@@ -15,4 +15,6 @@ mkdir -p \
   static/js \
   templates
 
+ 
+
 echo "-> BayAfya build dependencies installed and runtime directories prepared"

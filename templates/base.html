@@ -16,7 +16,7 @@
     <link href="{% static 'css/app.css' %}?v=20260419-01" rel="stylesheet">
     {% block extra_head %}{% endblock %}
 </head>
-<body class="site-shell {% if not show_shell_chrome %}auth-shell{% endif %}{% if user.is_authenticated %} user-authenticated{% endif %}" {% if user.is_authenticated and current_hospital %}data-hospital-live-id="{{ current_hospital.id }}"{% endif %}>
+<body class="site-shell {% if not show_shell_chrome %}auth-shell{% endif %}{% if user.is_authenticated %} user-authenticated{% endif %}{% block body_class %}{% endblock %}" {% if user.is_authenticated and current_hospital %}data-hospital-live-id="{{ current_hospital.id }}"{% endif %}>
 {% if show_shell_chrome %}
 <div id="pwaInstallBanner" class="pwa-banner d-none">
     <div class="container-fluid px-3 px-lg-4 py-2">
@@ -216,7 +216,7 @@
     </div>
 {% endif %}
 
-<main class="container-fluid px-3 px-lg-4 py-4 py-lg-5 page-enter app-main">
+<main class="container-fluid px-3 px-lg-4 py-4 py-lg-5 page-enter app-main{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
 </main>
 

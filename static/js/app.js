@@ -3529,6 +3529,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const behavior = form.dataset.asyncBehavior || "";
             const actionUrl = getFormActionUrl(form);
             const refreshSelectors = parseRefreshSelectors(form.dataset.refreshSections);
+            const closeParentModal = () => {
+                if (form.dataset.closeOnSuccess !== "1") return;
+                const modalElement = form.closest(".modal");
+                if (!modalElement || !window.bootstrap?.Modal) return;
+                const instance = window.bootstrap.Modal.getInstance(modalElement) || new window.bootstrap.Modal(modalElement);
+                instance.hide();
+            };
             withBusyButton(button, "", async () => {
                 const response = await fetch(actionUrl, {
                     method: "POST",
@@ -3569,6 +3576,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         return;
                     }
                     if (swapped) {
+                        closeParentModal();
                         appendToast(platformName, "Dashboard updated.", "success");
                         return;
                     }
@@ -3626,12 +3634,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 } else if (behavior === "admission-action") {
                     form.reset();
-                const refreshed = await refreshAdmissionDashboardRoot();
-                if (!refreshed) {
-                    window.location.reload();
-                    return;
-                }
+                    closeParentModal();
+                    const refreshed = await refreshAdmissionDashboardRoot();
+                    if (!refreshed) {
+                        window.location.reload();
+                        return;
+                    }
                 } else if (behavior === "live-root-refresh") {
+                    closeParentModal();
                     if (refreshSelectors.length) {
                         const replaced = await refreshLiveSections(refreshSelectors, { force: true });
                         if (!replaced.length) {
@@ -3657,6 +3667,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 applyLiveMetrics(payload.metrics);
+                closeParentModal();
                 appendToast(platformName, payload.message || "Dashboard updated.", "success");
             });
         }
