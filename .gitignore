@@ -1,14 +1,18 @@
-# Ignore environment files
-.env
-.env.*
-
-# Python / virtualenv
-venv/
-ENV/
-env/
+# Python
 __pycache__/
 *.py[cod]
+*.so
+.Python
+env/
+venv/
+.env
 
-# Django / project
+# Database
 db.sqlite3
-media/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
