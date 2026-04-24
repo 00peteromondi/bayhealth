@@ -13,7 +13,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="manifest" href="{% url 'manifest' %}">
     <meta name="theme-color" content="#153147">
-    <link href="{% static 'css/app.css' %}?v=20260419-01" rel="stylesheet">
+    <link href="{% static 'css/app.css' %}?v=20260424-01" rel="stylesheet">
     {% block extra_head %}{% endblock %}
 </head>
 <body class="site-shell {% if not show_shell_chrome %}auth-shell{% endif %}{% if user.is_authenticated %} user-authenticated{% endif %}{% block body_class %}{% endblock %}" {% if user.is_authenticated and current_hospital %}data-hospital-live-id="{{ current_hospital.id }}"{% endif %}>
@@ -461,7 +461,7 @@
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{% static 'js/app.js' %}?v=20260421-01"></script>
+    <script src="{% static 'js/app.js' %}?v=20260424-01"></script>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
