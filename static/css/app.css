@@ -5014,3 +5014,49 @@ form .helptext,
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* Registration page: scroll the form area instead of clipping the wizard actions. */
+.auth-register-page.auth-shell {
+    overflow-y: auto;
+}
+
+/* Bootstrap's .overflow-hidden utility is !important, so the override must be too. */
+.auth-register-page .auth-card {
+    overflow: visible !important;
+    max-height: none;
+}
+
+.auth-register-page .auth-form-panel {
+    min-height: 0;
+}
+
+.auth-register-page .auth-register-scroller {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding-right: 0.35rem;
+}
+
+.auth-register-page .auth-wizard-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.96);
+    padding-bottom: 0.75rem;
+}
+
+.auth-register-page .auth-wizard-actions > div {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 991.98px) {
+    .auth-register-page .auth-register-scroller {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+}
